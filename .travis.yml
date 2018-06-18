@@ -7,7 +7,5 @@ env:
   global:
     - PRIVATE_REPO = true
 script:
-  - npm rebuild node-sass --force
-  - yarn build
-  - node api/cite index.js
-  - node api/cloudfront-distribution index.js
+  - node cite index.js
+  - node cloudfront-distribution index.js
