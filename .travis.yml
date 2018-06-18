@@ -1,0 +1,13 @@
+language: node_js
+node_js:
+  - "8.1"
+  - "lts/*"
+  - "node"
+env:
+  global:
+    - PRIVATE_REPO = true
+script:
+  - npm rebuild node-sass --force
+  - yarn build
+  - node api/cite index.js
+  - node api/cloudfront-distribution index.js
