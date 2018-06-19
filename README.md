@@ -1,4 +1,4 @@
-# CloudCite API [![Build Status](https://travis-ci.com/as0218PUSD/cloudcite-api.svg?token=PGuisJQYAXFAqhqdPqPm&branch=master)](https://travis-ci.com/as0218PUSD/cloudcite-api)
+# CloudCite API [![Build Status](https://travis-ci.com/avimshah/cloudcite-api.svg?token=PGuisJQYAXFAqhqdPqPm&branch=master)](https://travis-ci.com/avimshah/cloudcite-api)
 ## The best bibliography generator. No ads, no tracking, no gimmicks, no registration required, always secure (SSL, TLS 1.3, HSTS, and CSP), always fast (HTTP/2.0 and Brotli Compression) and 100% Open Source (AGPLv3).
 
 This repository is for the backend. The frontend repository can be found [here](https://github.com/navalpatel384/cloudcite).
