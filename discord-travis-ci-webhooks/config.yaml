@@ -1,0 +1,11 @@
+discord-webhook: https://discordapp.com/api/webhooks/458454925190627338/VfvfihEs3v_Iy7E6HzoQ-qlpUl8qmLxKRmXIG9bOTLOCdMePOHLGZvza_dhRHLQHTFVC
+
+
+colors:
+  pending: 15588927        # #EDDE3F
+  passed: 3779158          # #39AA56
+  fixed: 3779158           # #39AA56
+  broken: 14370117         # #DB4545
+  failed: 14370117         # #DB4545
+  still failing: 14370117  # #DB4545
+  canceled: 10329501       # #9D9D9D

@@ -1,7 +1,6 @@
 language: node_js
 notifications:
   webhooks:
-    urls:
       - https://cloudcite-api-build-status.herokuapp.com
 node_js:
   - "8.1"
