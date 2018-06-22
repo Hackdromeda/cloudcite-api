@@ -29,8 +29,9 @@ exports.handler = function(event, context, callback) {
 	sys.addLocale('en-US', enUS);
 	var styleLocation = './styles/' + request.style + '.csl';
     var styleString = fs.readFileSync(styleLocation, 'utf8');
-    var engine = sys.newEngine(styleString, 'en-US', null);
-    var items = {
+	var engine = sys.newEngine(styleString, 'en-US', null);
+	var items = request.csl;
+/*     var items = {
   		"14058/RN9M5BF3": {
 		"accessed": {
 		"month": "9",
@@ -98,7 +99,7 @@ exports.handler = function(event, context, callback) {
 			"URL": "http://ieeexplore.ieee.org/lpdocs/epic03/wrapper.htm?arnumber=5276761",
 			"versionNumber": 1
 		}
-		};
+	}; */
     //Test case items
     sys.items = items;
     
@@ -123,42 +124,3 @@ exports.handler = function(event, context, callback) {
 		return callback(JSON.stringify(err), null);
 	}
 } // end of Lambda export
-
-const itemTypes = {
-	1: 'note',
-	2: 'book',
-	3: 'bookSection',
-	4: 'journalArticle',
-	5: 'magazineArticle',
-	6: 'newspaperArticle',
-	7: 'thesis',
-	8: 'letter',
-	9: 'manuscript',
-	10: 'interview',
-	11: 'film',
-	12: 'artwork',
-	13: 'webpage',
-	14: 'attachment',
-	15: 'report',
-	16: 'bill',
-	17: 'case',
-	18: 'hearing',
-	19: 'patent',
-	20: 'statute',
-	21: 'email',
-	22: 'map',
-	23: 'blogPost',
-	24: 'instantMessage',
-	25: 'forumPost',
-	26: 'audioRecording',
-	27: 'presentation',
-	28: 'videoRecording',
-	29: 'tvBroadcast',
-	30: 'radioBroadcast',
-	31: 'podcast',
-	32: 'computerProgram',
-	33: 'conferencePaper',
-	34: 'document',
-	35: 'encyclopediaArticle',
-	36: 'dictionaryEntry'
-};
