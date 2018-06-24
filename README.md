@@ -1,4 +1,4 @@
-# CloudCite API [![Build Status](https://travis-ci.com/hackdromeda/cloudcite-api.svg)](https://travis-ci.com/hackdromeda/cloudcite-api) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE).
+# CloudCite API [![Build Status](https://travis-ci.com/hackdromeda/cloudcite-api.svg)](https://travis-ci.com/hackdromeda/cloudcite-api) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
 ## The best bibliography generator. No ads, no tracking, no gimmicks, no registration required, always secure (SSL, TLS 1.3, HSTS, and CSP), always fast (HTTP/2.0 and Brotli Compression) and 100% Open Source (AGPLv3).
 
