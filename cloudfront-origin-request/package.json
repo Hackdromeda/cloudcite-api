@@ -1,0 +1,14 @@
+{
+  "name": "cloudfront-origin-request",
+  "version": "1.0.0",
+  "description": "Lambda function that adds trailing slash and index.html to trailing slash",
+  "author": "Avi Shah <as0218@pleasantonusd.net> (https://avimshah.com)",
+  "contributors": [],
+  "private": true,
+  "scripts": {
+    "dev": "node index.js",
+    "test": "node index.js"
+  },
+  "dependencies": {
+  }
+}
