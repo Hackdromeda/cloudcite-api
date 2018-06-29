@@ -5,8 +5,8 @@ var citeproc = require("citeproc-js-node");
 //docs for citeproc https://citeproc-js.readthedocs.io/en/latest/index.html
 
 exports.handler = function(event, context, callback) {
-    var headers = event.headers;
-    headers = ConvertKeysToLowerCase(headers);
+    //var headers = event.headers;
+    //headers = ConvertKeysToLowerCase(headers);
     var request = JSON.parse(event.body); //[required: { style: "modern-language-association"}, locale: "locales-en-US", csl: {<csl stuff>}]
     if (request == null || request == "") {
         var body = {

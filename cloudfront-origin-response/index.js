@@ -1,6 +1,7 @@
 'use strict';
 exports.handler = (event, context, callback) => {
     const response = event.Records[0].cf.response;
+    const request = event.Records[0].cf.request;
     const headers = response.headers;
     
     headers['report-to'] = [{
@@ -19,7 +20,7 @@ exports.handler = (event, context, callback) => {
 
     headers['content-security-policy'] = [{
         key:   'Content-Security-Policy', 
-        value: "default-src 'self' *.cloudcite.net *.cloudflare.com *.googleapis.com; img-src 'self' *.gstatic.com gstatic.com *.google.com google.com translate.google.com *.googleapis.com data:; script-src 'self' 'unsafe-eval' translate.google.com *.googleapis.com; style-src 'self' 'unsafe-eval' 'unsafe-inline' data: cdn.materialdesignicons.com *.googleapis.com; object-src 'none'; font-src 'self' *.googleapis.com cdn.materialdesignicons.com data:; report-uri https://cloudcite.report-uri.com/r/d/csp/enforce; report-to csp-endpoint"
+        value: "default-src 'self' *.cloudcite.net *.cloudflare.com *.auth0.com auth0.com *.googleapis.com; img-src 'self' *.gstatic.com gstatic.com *.google.com google.com translate.google.com *.googleapis.com data:; script-src 'self' 'unsafe-eval' translate.google.com *.googleapis.com; style-src 'self' 'unsafe-eval' 'unsafe-inline' data: cdn.materialdesignicons.com *.googleapis.com; object-src 'none'; font-src 'self' *.googleapis.com *.gstatic.com cdn.materialdesignicons.com data:; report-uri https://cloudcite.report-uri.com/r/d/csp/enforce; report-to csp-endpoint"
     }];
 
     headers['x-content-type-options'] = [{
@@ -41,6 +42,14 @@ exports.handler = (event, context, callback) => {
         key:   'Referrer-Policy',
         value: "same-origin"
     }];
+    
+    var url = request.uri;
+    if(url.indexOf("index.html") >= 0 && response.status == 404){
+        response.status = 403;
+    }
+    if(url.indexOf("error/index.html") >= 0){
+        response.status = 404;
+    }
     
     callback(null, response);
 };

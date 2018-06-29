@@ -11,4 +11,5 @@ env:
     - PRIVATE_REPO = true
 script:
   - node cite index.js
-  - node cloudfront-distribution index.js
+  - node cloudfront-origin-request index.js
+  - node cloudfront-origin-response index.js
