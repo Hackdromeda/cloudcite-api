@@ -1,5 +1,3 @@
-const AWS = require('aws-sdk');
-const https = require('https');
 const rp = require('request-promise-native');
 const cheerio = require('cheerio');
 const _ = require('lodash');
@@ -14,7 +12,7 @@ exports.handler = function(event, context, callback) {
     var request = JSON.parse(event.body);
 /*     if(headers["content-type"] != null && headers["content-type"].toLowerCase() != "application/json"){
         var body = {
-                    "error": "the server can only accept data in the application/json format"
+            "error": "the server can only accept data in the application/json format"
         };
         var response = {
             "statusCode": 406,
@@ -86,7 +84,7 @@ exports.handler = function(event, context, callback) {
                         "title": null,
                         "publisher": null,
                         "source": null,
-                        "URL": null,
+                        "URL": request.url,
                         "type": "webpage"
                     };
                     var rootDomain = extractRootDomain(request.url).toLowerCase();
@@ -188,7 +186,7 @@ exports.handler = function(event, context, callback) {
                                 middleName = fullName[fullName.length - 2];
                             }
                             if (middleName != null){
-                                firstName = firstName + middleName;
+                                firstName = firstName + " " + middleName;
                             }
                             citation.author.push({given: firstName, family: lastName});
                         }
@@ -296,7 +294,7 @@ exports.handler = function(event, context, callback) {
                 };
                 return callback(null, response);
             }
-            if(request.ID == null || request.ID == ""){
+            if(request.movie == null || request.movie == ""){
                 var page = "1";
                 if(request.page != null && request.page != ""){
                     page = "" + request.page;
@@ -338,8 +336,8 @@ exports.handler = function(event, context, callback) {
                 });
             }
             else {
-                var creditsURL = "https://api.themoviedb.org/3/movie/" + request.ID + "/credits?api_key=" + process.env.TMDB_KEY + "&language=en-US";
-                var infoURL = "https://api.themoviedb.org/3/movie/" + request.ID + "?api_key=" + process.env.TMDB_KEY + "&language=en-US";
+                var creditsURL = "https://api.themoviedb.org/3/movie/" + request.movie + "/credits?api_key=" + process.env.TMDB_KEY + "&language=en-US";
+                var infoURL = "https://api.themoviedb.org/3/movie/" + request.movie + "?api_key=" + process.env.TMDB_KEY + "&language=en-US";
 
                 var creditsOptions = {
                     uri: creditsURL,
@@ -359,12 +357,82 @@ exports.handler = function(event, context, callback) {
                 }
 
                var creditsRP = rp(creditsOptions);
-               var infoRP = rp(infoOptions);
-        
+               var infoRP = rp(infoOptions); 
                Bluebird.all([creditsRP, infoRP])
                    .spread(function (credits, details) {
-                    var array = [{credits: credits}, {details: details}];
-                    return JSON.stringify(array);
+                    var ID = request.ID == null ? "SET" : request.ID;
+                    var citation = {
+                        "issued": {
+                            "month": null,
+                            "year": null,
+                            "day": null
+                        },
+                        "id": ID,
+                        "director": [],
+                        "title": null,
+                        "publisher": null,
+                        "publisher-place": null,
+                        "source": null,
+                        "abstract": null,
+                        "type": "motion_picture"
+                    };
+                    var crew;
+                    if(details != null && details.release_date != null){
+                        var date = details.release_date.split("-");
+                        citation.issued.year = date[0];
+                        citation.issued.month = date[1];
+                        citation.issued.day = date[2];
+                    }
+                    if(details != null && details.overview != null){
+                        citation.abstract = details.overview;
+                    }
+                    if(details != null && details.title != null){
+                        citation.title = details.title;
+                    }
+                    if(details != null && details.production_companies != null){
+                        if(details.production_companies.length >= 1){
+                            citation.publisher = details.production_companies[0].name;
+                        }
+                    }
+                    if(details != null && details.production_countries != null){
+                        if(details.production_countries.length >= 1){
+                            citation["publisher-place"] = details.production_countries[0].name;
+                        }
+                    }
+                    var director = [];
+                    if(credits != null && credits.crew != null){
+                        crew = credits.crew;
+                    }
+                    for(var i = 0; i < crew.length; i++){
+                        if(crew[i].job.toLowerCase() == "director"){
+                            director.push(crew[i].name);
+                        }
+                    }
+                    for(var i = 0; i < director.length; i++){
+                        if(director[i] != null){      
+                            var fullName = director[i].split(' ');
+                            var firstName = fullName[0];
+                            var middleName;
+                            var lastName;
+                            if(fullName.length >= 2){
+                                lastName = fullName[fullName.length - 1];
+                            }
+                            if(fullName.length == 3){
+                                middleName = fullName[fullName.length - 2];
+                            }
+                            if(fullName.length > 3){
+                                for(var j = 1; j > fullName.length - 2; j++){
+                                    firstName = firstName + " " + fullName[j];
+                                }
+                                middleName = fullName[fullName.length - 2];
+                            }
+                            if (middleName != null){
+                                firstName = firstName + " " + middleName;
+                            }
+                            citation.director.push({given: firstName, family: lastName});
+                        }
+                    }
+                    return JSON.stringify(citation);
                 }).then((body) => {
                     var response = {
                         "statusCode": 200,
