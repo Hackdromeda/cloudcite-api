@@ -74,8 +74,22 @@ exports.handler = function(event, context, callback) {
                         return cheerio.load(body);
                     }
                 }).then(($) => {
-                    var citation = request;
-                    var rootDomain = extractRootDomain(citation.url).toLowerCase();
+                    var ID = request.ID == null ? "SET" : request.ID;
+                    var citation = {
+                        "issued": {
+                            "month": null,
+                            "year": null,
+                            "day": null
+                        },
+                        "id": ID,
+                        "author": [],
+                        "title": null,
+                        "publisher": null,
+                        "source": null,
+                        "URL": null,
+                        "type": "webpage"
+                    };
+                    var rootDomain = extractRootDomain(request.url).toLowerCase();
                     var html = $("html").html();
                     //console.log("HTML finished: " + html);
                     var schema = microdata.toJson(html);
@@ -155,7 +169,6 @@ exports.handler = function(event, context, callback) {
                     }
                     authors = _.uniq(authors);
                     authors = _.compact(authors)
-                    citation.authors = [];
                     for(var i = 0; i < authors.length; i++){
                         if(authors[i] != null){      
                             var fullName = authors[i].split(' ');
@@ -174,20 +187,23 @@ exports.handler = function(event, context, callback) {
                                 }
                                 middleName = fullName[fullName.length - 2];
                             }
-                            citation.authors.push({first: firstName, middle: middleName, last: lastName});
+                            if (middleName != null){
+                                firstName = firstName + middleName;
+                            }
+                            citation.author.push({given: firstName, family: lastName});
                         }
                     }
                     if(rootDomain == "youtu.be" || rootDomain == "youtube.com"){
                         var videoOwner = $('.yt-user-info > a').text();
                         if (videoOwner != null && videoOwner != ""){
-                            citation.authors.push({first: videoOwner, middle: null, last: null});
+                            citation.author.push({given: videoOwner});
                         }
                     }
                     if(rootDomain == "twitter.com" || (citation.source != null && citation.source.toLowerCase() == "twitter")){
-                        for(var i = 0; i < citation.authors.length; i++){
-                            var fn = citation.authors[i].first;
+                        for(var i = 0; i < citation.author.length; i++){
+                            var fn = citation.author[i].given;
                             if(fn != null && fn != ""){
-                                citation.authors[i].first = "@" + fn;
+                                citation.author[i].given = "@" + fn;
                             }
                         }
                     }
@@ -200,27 +216,24 @@ exports.handler = function(event, context, callback) {
                     if((citation.publisher != null && citation.publisher != "") && (citation.source == null || citation.source == "")){
                         citation.source = citation.publisher;
                     }
-                    // update later to find best match given source
-                    citation.datePublished = $('meta[property="og:published_time"]').attr('content');
-                    if (citation.datePublished == null || citation.datePublished == "") {
-                        citation.datePublished = $('meta[property="article:published_time"]').attr('content');
+                    var date;
+                    date = $('meta[property="og:published_time"]').attr('content');
+                    if (date == null || date == "") {
+                        date = $('meta[property="article:published_time"]').attr('content');
                     }
-                    if (citation.datePublished == null || citation.datePublished == "") {
-                        citation.datePublished = $('meta[property="article:published"]').attr('content');
+                    if (date == null || date == "") {
+                        date = $('meta[property="article:published"]').attr('content');
                     }
-                    if (citation.datePublished == null || citation.datePublished == "") {
+                    if (date == null || date == "") {
                         if(meta != null && meta.date != null && meta.date != ""){
-                            citation.datePublished = meta.date;
+                            date = meta.date;
                         }
                     }
-                    const MLAmonths = ["Jan.", "Feb.", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec." ];
-                    if (citation.datePublished != null) {
-                        citation.datePublished = new Date(citation.datePublished)
-                        citation.datePublished = {
-                            month: citation.datePublished.getMonth(), 
-                            day: citation.datePublished.getDate(), 
-                            year: citation.datePublished.getFullYear()
-                        }
+                    if (date != null) {
+                        date = new Date(date)
+                        citation.issued.month = (date.getMonth() + 1).toString();
+                        citation.issued.day = date.getDate().toString();
+                        citation.issued.year = date.getFullYear().toString();
                     }
                     citation = JSON.stringify(citation)
                     //console.log('Citation: ' + citation)
@@ -230,7 +243,7 @@ exports.handler = function(event, context, callback) {
                             "Access-Control-Allow-Origin" : "*",
                             "Access-Control-Allow-Credentials" : true
                         },
-                        "body": JSON.stringify(citation),
+                        "body": citation,
                         "isBase64Encoded": false
                     };
                     callback(null, response);
