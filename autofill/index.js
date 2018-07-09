@@ -383,9 +383,15 @@ exports.handler = function(event, context, callback) {
                     var crew;
                     if(details != null && details.release_date != null){
                         var date = details.release_date.split("-");
-                        citation.issued.year = date[0];
-                        citation.issued.month = date[1];
-                        citation.issued.day = date[2];
+                        if(date.length >= 1){
+                            citation.issued.year = date[0];
+                        }
+                        if(date.length >= 2){
+                            citation.issued.month = date[1];
+                        }
+                        if(date.length >= 3){
+                            citation.issued.day = date[2];
+                        }
                     }
                     if(details != null && details.overview != null){
                         citation.abstract = details.overview;
@@ -467,7 +473,7 @@ exports.handler = function(event, context, callback) {
             }
             break;
         case 'book':
-            var search = (request.title == null || request.title == "") && (request.isbn == null || request.isbn == "") && (request.lccn == null || request.lccn == "") && (request.oclc == null || request.oclc == "");
+            var search = (request.title == null || request.title == "") && (request.isbn == null || request.isbn == "") && (request.lccn == null || request.lccn == "") && (request.oclc == null || request.oclc == "") && (request.author == null || request.author == "") && (request.publisher == null || request.publisher == "");
             var details = (request.book == null || request.book == "");
             if(search && details){
                 var body = {
@@ -498,9 +504,15 @@ exports.handler = function(event, context, callback) {
                 else if(request.oclc != null && request.oclc != ""){
                     url = url + "oclc:" + request.oclc;
                 }
+                else if(request.author != null && request.author != ""){
+                    url = url + "inauthor:" + request.author;
+                }
+                else if(request.publisher != null && request.publisher != ""){
+                    url = url + "inpublisher:" + request.publisher;
+                }
                 else{
                     var body = {
-                        "error": "expected book title, isbn, lccn, oclc, or id"
+                        "error": "expected book title, isbn, lccn, oclc, author, publisher, or id"
                     };
                     var response = {
                         "statusCode": 422,
@@ -551,12 +563,13 @@ exports.handler = function(event, context, callback) {
             else{
                 var url = "https://www.googleapis.com/books/v1/volumes/" + request.book + "?key=" + process.env.GOOGLE;
                 rp({
-                    uri: request.url,
+                    uri: url,
+                    method: 'GET',
                     timeout: 4000,
                     transform: function(body) {
-                        return cheerio.load(body);
+                        return JSON.parse(body);
                     }
-                }).then(($) => {
+                }).then((body) => {
                     var id = request.id == null ? "SET" : request.id;
                     var citation = {
                         "issued": {
@@ -580,10 +593,95 @@ exports.handler = function(event, context, callback) {
                         "number-of-volumes": null,
                         "source": null,
                         "URL": null,
+                        "dimensions": null,
                         "abstract": null,
                         "collection-title": null,
                         "type": "book"
                     };
+                    if(body != null){
+                        if(body.volumeInfo != null){
+                            if(body.volumeInfo.title != null && body.volumeInfo.title != ""){
+                                citation.title = body.volumeInfo.title;
+                            }
+                            if(body.volumeInfo.publisher != null && body.volumeInfo.publisher != ""){
+                                citation.publisher = body.volumeInfo.publisher;
+                            }
+                            if(body.volumeInfo.language != null && body.volumeInfo.language != ""){
+                                citation.language = convertLang(body.volumeInfo.language);
+                            }
+                            if(body.volumeInfo.authors != null && body.volumeInfo.authors != ""){
+                                var authors = body.volumeInfo.authors;
+                                for(var i = 0; i < authors.length; i++){
+                                    if(authors[i] != null){      
+                                        var fullName = authors[i].split(' ');
+                                        var given;
+                                        var firstName = fullName[0];
+                                        var middleName;
+                                        var lastName;
+                                        if(fullName.length >= 2){
+                                            lastName = fullName[fullName.length - 1];
+                                        }
+                                        if(fullName.length == 3){
+                                            middleName = fullName[fullName.length - 2];
+                                        }
+                                        if(fullName.length > 3){
+                                            for(var j = 1; j > fullName.length - 2; j++){
+                                                firstName = firstName + " " + fullName[j];
+                                            }
+                                            middleName = fullName[fullName.length - 2];
+                                        }
+                                        given = firstName;
+                                        if (middleName != null){
+                                            given = firstName + " " + middleName;
+                                        }
+                                        citation.author.push({given: given, family: lastName});
+                                    }
+                                }
+                            }
+                            if(body.volumeInfo.publishedDate != null && body.volumeInfo.publishedDate != null){
+                                var date = body.volumeInfo.publishedDate.split("-");
+                                if(date.length >= 1){
+                                    citation.issued.year = date[0];
+                                }
+                                if(date.length >= 2){
+                                    citation.issued.month = date[1];
+                                }
+                                if(date.length >= 3){
+                                    citation.issued.day = date[2];
+                                }
+                            }
+                            if(body.volumeInfo.description != null && body.volumeInfo.description != ""){
+                                citation.abstract = body.volumeInfo.description;
+                            }
+                            if(body.volumeInfo.pageCount != null && body.volumeInfo.pageCount != ""){
+                                citation["number-of-pages"] = body.volumeInfo.pageCount;
+                            }
+                            if(body.volumeInfo.industryIdentifiers != null && body.volumeInfo.industryIdentifiers != ""){
+                                var ISBNs = [];
+                                for(var i = 0; i < body.volumeInfo.industryIdentifiers.length; i++){
+                                    if(body.volumeInfo.industryIdentifiers[i].type.includes("ISBN")){
+                                        ISBNs.push(body.volumeInfo.industryIdentifiers[i].identifier)
+                                    }
+                                }
+                                if(ISBNs.length >= 1){
+                                    citation.ISBN = ISBNs[ISBNs.length - 1];
+                                }
+                            }
+                            if(body.volumeInfo.dimensions != null && body.volumeInfo.dimensions != ""){
+                                var dimensions;
+                                if(body.volumeInfo.dimensions.height != null && body.volumeInfo.dimensions.height != ""){
+                                    dimensions = body.volumeInfo.dimensions.height;
+                                } 
+                                if(body.volumeInfo.dimensions.width != null && body.volumeInfo.dimensions.width != ""){
+                                    dimensions = dimensions + " x " + body.volumeInfo.dimensions.width;
+                                } 
+                                if(body.volumeInfo.dimensions.thickness != null && body.volumeInfo.dimensions.thickness != ""){
+                                    dimensions = dimensions + " x " + body.volumeInfo.dimensions.thickness;
+                                }
+                                citation.dimensions = dimensions;
+                            }
+                        }
+                    }
                     citation = JSON.stringify(citation)
                     var response = {
                         "statusCode": 200,
@@ -714,4 +812,968 @@ function youtubeID(url){
     var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
     var match = url.match(regExp);
     return (match&&match[7].length==11)? match[7] : false;
+}
+
+function convertLang(lang){
+    var isoLangs = {
+        ab: {
+          name: 'Abkhaz',
+          nativeName: 'аҧсуа'
+        },
+        aa: {
+          name: 'Afar',
+          nativeName: 'Afaraf'
+        },
+        af: {
+          name: 'Afrikaans',
+          nativeName: 'Afrikaans'
+        },
+        ak: {
+          name: 'Akan',
+          nativeName: 'Akan'
+        },
+        sq: {
+          name: 'Albanian',
+          nativeName: 'Shqip'
+        },
+        am: {
+          name: 'Amharic',
+          nativeName: 'አማርኛ'
+        },
+        ar: {
+          name: 'Arabic',
+          nativeName: 'العربية'
+        },
+        an: {
+          name: 'Aragonese',
+          nativeName: 'Aragonés'
+        },
+        hy: {
+          name: 'Armenian',
+          nativeName: 'Հայերեն'
+        },
+        as: {
+          name: 'Assamese',
+          nativeName: 'অসমীয়া'
+        },
+        av: {
+          name: 'Avaric',
+          nativeName: 'авар мацӀ, магӀарул мацӀ'
+        },
+        ae: {
+          name: 'Avestan',
+          nativeName: 'avesta'
+        },
+        ay: {
+          name: 'Aymara',
+          nativeName: 'aymar aru'
+        },
+        az: {
+          name: 'Azerbaijani',
+          nativeName: 'azərbaycan dili'
+        },
+        bm: {
+          name: 'Bambara',
+          nativeName: 'bamanankan'
+        },
+        ba: {
+          name: 'Bashkir',
+          nativeName: 'башҡорт теле'
+        },
+        eu: {
+          name: 'Basque',
+          nativeName: 'euskara, euskera'
+        },
+        be: {
+          name: 'Belarusian',
+          nativeName: 'Беларуская'
+        },
+        bn: {
+          name: 'Bengali',
+          nativeName: 'বাংলা'
+        },
+        bh: {
+          name: 'Bihari',
+          nativeName: 'भोजपुरी'
+        },
+        bi: {
+          name: 'Bislama',
+          nativeName: 'Bislama'
+        },
+        bs: {
+          name: 'Bosnian',
+          nativeName: 'bosanski jezik'
+        },
+        br: {
+          name: 'Breton',
+          nativeName: 'brezhoneg'
+        },
+        bg: {
+          name: 'Bulgarian',
+          nativeName: 'български език'
+        },
+        my: {
+          name: 'Burmese',
+          nativeName: 'ဗမာစာ'
+        },
+        ca: {
+          name: 'Catalan; Valencian',
+          nativeName: 'Català'
+        },
+        ch: {
+          name: 'Chamorro',
+          nativeName: 'Chamoru'
+        },
+        ce: {
+          name: 'Chechen',
+          nativeName: 'нохчийн мотт'
+        },
+        ny: {
+          name: 'Chichewa; Chewa; Nyanja',
+          nativeName: 'chiCheŵa, chinyanja'
+        },
+        zh: {
+          name: 'Chinese',
+          nativeName: '中文 (Zhōngwén), 汉语, 漢語'
+        },
+        cv: {
+          name: 'Chuvash',
+          nativeName: 'чӑваш чӗлхи'
+        },
+        kw: {
+          name: 'Cornish',
+          nativeName: 'Kernewek'
+        },
+        co: {
+          name: 'Corsican',
+          nativeName: 'corsu, lingua corsa'
+        },
+        cr: {
+          name: 'Cree',
+          nativeName: 'ᓀᐦᐃᔭᐍᐏᐣ'
+        },
+        hr: {
+          name: 'Croatian',
+          nativeName: 'hrvatski'
+        },
+        cs: {
+          name: 'Czech',
+          nativeName: 'česky, čeština'
+        },
+        da: {
+          name: 'Danish',
+          nativeName: 'dansk'
+        },
+        dv: {
+          name: 'Divehi; Dhivehi; Maldivian;',
+          nativeName: 'ދިވެހި'
+        },
+        nl: {
+          name: 'Dutch',
+          nativeName: 'Nederlands, Vlaams'
+        },
+        en: {
+          name: 'English',
+          nativeName: 'English'
+        },
+        eo: {
+          name: 'Esperanto',
+          nativeName: 'Esperanto'
+        },
+        et: {
+          name: 'Estonian',
+          nativeName: 'eesti, eesti keel'
+        },
+        ee: {
+          name: 'Ewe',
+          nativeName: 'Eʋegbe'
+        },
+        fo: {
+          name: 'Faroese',
+          nativeName: 'føroyskt'
+        },
+        fj: {
+          name: 'Fijian',
+          nativeName: 'vosa Vakaviti'
+        },
+        fi: {
+          name: 'Finnish',
+          nativeName: 'suomi, suomen kieli'
+        },
+        fr: {
+          name: 'French',
+          nativeName: 'français, langue française'
+        },
+        ff: {
+          name: 'Fula; Fulah; Pulaar; Pular',
+          nativeName: 'Fulfulde, Pulaar, Pular'
+        },
+        gl: {
+          name: 'Galician',
+          nativeName: 'Galego'
+        },
+        ka: {
+          name: 'Georgian',
+          nativeName: 'ქართული'
+        },
+        de: {
+          name: 'German',
+          nativeName: 'Deutsch'
+        },
+        el: {
+          name: 'Greek, Modern',
+          nativeName: 'Ελληνικά'
+        },
+        gn: {
+          name: 'Guaraní',
+          nativeName: 'Avañeẽ'
+        },
+        gu: {
+          name: 'Gujarati',
+          nativeName: 'ગુજરાતી'
+        },
+        ht: {
+          name: 'Haitian; Haitian Creole',
+          nativeName: 'Kreyòl ayisyen'
+        },
+        ha: {
+          name: 'Hausa',
+          nativeName: 'Hausa, هَوُسَ'
+        },
+        he: {
+          name: 'Hebrew (modern)',
+          nativeName: 'עברית'
+        },
+        hz: {
+          name: 'Herero',
+          nativeName: 'Otjiherero'
+        },
+        hi: {
+          name: 'Hindi',
+          nativeName: 'हिन्दी, हिंदी'
+        },
+        ho: {
+          name: 'Hiri Motu',
+          nativeName: 'Hiri Motu'
+        },
+        hu: {
+          name: 'Hungarian',
+          nativeName: 'Magyar'
+        },
+        ia: {
+          name: 'Interlingua',
+          nativeName: 'Interlingua'
+        },
+        id: {
+          name: 'Indonesian',
+          nativeName: 'Bahasa Indonesia'
+        },
+        ie: {
+          name: 'Interlingue',
+          nativeName: 'Originally called Occidental; then Interlingue after WWII'
+        },
+        ga: {
+          name: 'Irish',
+          nativeName: 'Gaeilge'
+        },
+        ig: {
+          name: 'Igbo',
+          nativeName: 'Asụsụ Igbo'
+        },
+        ik: {
+          name: 'Inupiaq',
+          nativeName: 'Iñupiaq, Iñupiatun'
+        },
+        io: {
+          name: 'Ido',
+          nativeName: 'Ido'
+        },
+        is: {
+          name: 'Icelandic',
+          nativeName: 'Íslenska'
+        },
+        it: {
+          name: 'Italian',
+          nativeName: 'Italiano'
+        },
+        iu: {
+          name: 'Inuktitut',
+          nativeName: 'ᐃᓄᒃᑎᑐᑦ'
+        },
+        ja: {
+          name: 'Japanese',
+          nativeName: '日本語 (にほんご／にっぽんご)'
+        },
+        jv: {
+          name: 'Javanese',
+          nativeName: 'basa Jawa'
+        },
+        kl: {
+          name: 'Kalaallisut, Greenlandic',
+          nativeName: 'kalaallisut, kalaallit oqaasii'
+        },
+        kn: {
+          name: 'Kannada',
+          nativeName: 'ಕನ್ನಡ'
+        },
+        kr: {
+          name: 'Kanuri',
+          nativeName: 'Kanuri'
+        },
+        ks: {
+          name: 'Kashmiri',
+          nativeName: 'कश्मीरी, كشميري\u200e'
+        },
+        kk: {
+          name: 'Kazakh',
+          nativeName: 'Қазақ тілі'
+        },
+        km: {
+          name: 'Khmer',
+          nativeName: 'ភាសាខ្មែរ'
+        },
+        ki: {
+          name: 'Kikuyu, Gikuyu',
+          nativeName: 'Gĩkũyũ'
+        },
+        rw: {
+          name: 'Kinyarwanda',
+          nativeName: 'Ikinyarwanda'
+        },
+        ky: {
+          name: 'Kirghiz, Kyrgyz',
+          nativeName: 'кыргыз тили'
+        },
+        kv: {
+          name: 'Komi',
+          nativeName: 'коми кыв'
+        },
+        kg: {
+          name: 'Kongo',
+          nativeName: 'KiKongo'
+        },
+        ko: {
+          name: 'Korean',
+          nativeName: '한국어 (韓國語), 조선말 (朝鮮語)'
+        },
+        ku: {
+          name: 'Kurdish',
+          nativeName: 'Kurdî, كوردی\u200e'
+        },
+        kj: {
+          name: 'Kwanyama, Kuanyama',
+          nativeName: 'Kuanyama'
+        },
+        la: {
+          name: 'Latin',
+          nativeName: 'latine, lingua latina'
+        },
+        lb: {
+          name: 'Luxembourgish, Letzeburgesch',
+          nativeName: 'Lëtzebuergesch'
+        },
+        lg: {
+          name: 'Luganda',
+          nativeName: 'Luganda'
+        },
+        li: {
+          name: 'Limburgish, Limburgan, Limburger',
+          nativeName: 'Limburgs'
+        },
+        ln: {
+          name: 'Lingala',
+          nativeName: 'Lingála'
+        },
+        lo: {
+          name: 'Lao',
+          nativeName: 'ພາສາລາວ'
+        },
+        lt: {
+          name: 'Lithuanian',
+          nativeName: 'lietuvių kalba'
+        },
+        lu: {
+          name: 'Luba-Katanga',
+          nativeName: ''
+        },
+        lv: {
+          name: 'Latvian',
+          nativeName: 'latviešu valoda'
+        },
+        gv: {
+          name: 'Manx',
+          nativeName: 'Gaelg, Gailck'
+        },
+        mk: {
+          name: 'Macedonian',
+          nativeName: 'македонски јазик'
+        },
+        mg: {
+          name: 'Malagasy',
+          nativeName: 'Malagasy fiteny'
+        },
+        ms: {
+          name: 'Malay',
+          nativeName: 'bahasa Melayu, بهاس ملايو\u200e'
+        },
+        ml: {
+          name: 'Malayalam',
+          nativeName: 'മലയാളം'
+        },
+        mt: {
+          name: 'Maltese',
+          nativeName: 'Malti'
+        },
+        mi: {
+          name: 'Māori',
+          nativeName: 'te reo Māori'
+        },
+        mr: {
+          name: 'Marathi (Marāṭhī)',
+          nativeName: 'मराठी'
+        },
+        mh: {
+          name: 'Marshallese',
+          nativeName: 'Kajin M̧ajeļ'
+        },
+        mn: {
+          name: 'Mongolian',
+          nativeName: 'монгол'
+        },
+        na: {
+          name: 'Nauru',
+          nativeName: 'Ekakairũ Naoero'
+        },
+        nv: {
+          name: 'Navajo, Navaho',
+          nativeName: 'Diné bizaad, Dinékʼehǰí'
+        },
+        nb: {
+          name: 'Norwegian Bokmål',
+          nativeName: 'Norsk bokmål'
+        },
+        nd: {
+          name: 'North Ndebele',
+          nativeName: 'isiNdebele'
+        },
+        ne: {
+          name: 'Nepali',
+          nativeName: 'नेपाली'
+        },
+        ng: {
+          name: 'Ndonga',
+          nativeName: 'Owambo'
+        },
+        nn: {
+          name: 'Norwegian Nynorsk',
+          nativeName: 'Norsk nynorsk'
+        },
+        no: {
+          name: 'Norwegian',
+          nativeName: 'Norsk'
+        },
+        ii: {
+          name: 'Nuosu',
+          nativeName: 'ꆈꌠ꒿ Nuosuhxop'
+        },
+        nr: {
+          name: 'South Ndebele',
+          nativeName: 'isiNdebele'
+        },
+        oc: {
+          name: 'Occitan',
+          nativeName: 'Occitan'
+        },
+        oj: {
+          name: 'Ojibwe, Ojibwa',
+          nativeName: 'ᐊᓂᔑᓈᐯᒧᐎᓐ'
+        },
+        cu: {
+          name: 'Old Church Slavonic, Church Slavic, Church Slavonic, Old Bulgarian, Old Slavonic',
+          nativeName: 'ѩзыкъ словѣньскъ'
+        },
+        om: {
+          name: 'Oromo',
+          nativeName: 'Afaan Oromoo'
+        },
+        or: {
+          name: 'Oriya',
+          nativeName: 'ଓଡ଼ିଆ'
+        },
+        os: {
+          name: 'Ossetian, Ossetic',
+          nativeName: 'ирон æвзаг'
+        },
+        pa: {
+          name: 'Panjabi, Punjabi',
+          nativeName: 'ਪੰਜਾਬੀ, پنجابی\u200e'
+        },
+        pi: {
+          name: 'Pāli',
+          nativeName: 'पाऴि'
+        },
+        fa: {
+          name: 'Persian',
+          nativeName: 'فارسی'
+        },
+        pl: {
+          name: 'Polish',
+          nativeName: 'polski'
+        },
+        ps: {
+          name: 'Pashto, Pushto',
+          nativeName: 'پښتو'
+        },
+        pt: {
+          name: 'Portuguese',
+          nativeName: 'Português'
+        },
+        qu: {
+          name: 'Quechua',
+          nativeName: 'Runa Simi, Kichwa'
+        },
+        rm: {
+          name: 'Romansh',
+          nativeName: 'rumantsch grischun'
+        },
+        rn: {
+          name: 'Kirundi',
+          nativeName: 'kiRundi'
+        },
+        ro: {
+          name: 'Romanian, Moldavian, Moldovan',
+          nativeName: 'română'
+        },
+        ru: {
+          name: 'Russian',
+          nativeName: 'русский язык'
+        },
+        sa: {
+          name: 'Sanskrit (Saṁskṛta)',
+          nativeName: 'संस्कृतम्'
+        },
+        sc: {
+          name: 'Sardinian',
+          nativeName: 'sardu'
+        },
+        sd: {
+          name: 'Sindhi',
+          nativeName: 'सिन्धी, سنڌي، سندھی\u200e'
+        },
+        se: {
+          name: 'Northern Sami',
+          nativeName: 'Davvisámegiella'
+        },
+        sm: {
+          name: 'Samoan',
+          nativeName: 'gagana faa Samoa'
+        },
+        sg: {
+          name: 'Sango',
+          nativeName: 'yângâ tî sängö'
+        },
+        sr: {
+          name: 'Serbian',
+          nativeName: 'српски језик'
+        },
+        gd: {
+          name: 'Scottish Gaelic; Gaelic',
+          nativeName: 'Gàidhlig'
+        },
+        sn: {
+          name: 'Shona',
+          nativeName: 'chiShona'
+        },
+        si: {
+          name: 'Sinhala, Sinhalese',
+          nativeName: 'සිංහල'
+        },
+        sk: {
+          name: 'Slovak',
+          nativeName: 'slovenčina'
+        },
+        sl: {
+          name: 'Slovene',
+          nativeName: 'slovenščina'
+        },
+        so: {
+          name: 'Somali',
+          nativeName: 'Soomaaliga, af Soomaali'
+        },
+        st: {
+          name: 'Southern Sotho',
+          nativeName: 'Sesotho'
+        },
+        es: {
+          name: 'Spanish; Castilian',
+          nativeName: 'español, castellano'
+        },
+        su: {
+          name: 'Sundanese',
+          nativeName: 'Basa Sunda'
+        },
+        sw: {
+          name: 'Swahili',
+          nativeName: 'Kiswahili'
+        },
+        ss: {
+          name: 'Swati',
+          nativeName: 'SiSwati'
+        },
+        sv: {
+          name: 'Swedish',
+          nativeName: 'svenska'
+        },
+        ta: {
+          name: 'Tamil',
+          nativeName: 'தமிழ்'
+        },
+        te: {
+          name: 'Telugu',
+          nativeName: 'తెలుగు'
+        },
+        tg: {
+          name: 'Tajik',
+          nativeName: 'тоҷикӣ, toğikī, تاجیکی\u200e'
+        },
+        th: {
+          name: 'Thai',
+          nativeName: 'ไทย'
+        },
+        ti: {
+          name: 'Tigrinya',
+          nativeName: 'ትግርኛ'
+        },
+        bo: {
+          name: 'Tibetan Standard, Tibetan, Central',
+          nativeName: 'བོད་ཡིག'
+        },
+        tk: {
+          name: 'Turkmen',
+          nativeName: 'Türkmen, Түркмен'
+        },
+        tl: {
+          name: 'Tagalog',
+          nativeName: 'Wikang Tagalog, ᜏᜒᜃᜅ᜔ ᜆᜄᜎᜓᜄ᜔'
+        },
+        tn: {
+          name: 'Tswana',
+          nativeName: 'Setswana'
+        },
+        to: {
+          name: 'Tonga (Tonga Islands)',
+          nativeName: 'faka Tonga'
+        },
+        tr: {
+          name: 'Turkish',
+          nativeName: 'Türkçe'
+        },
+        ts: {
+          name: 'Tsonga',
+          nativeName: 'Xitsonga'
+        },
+        tt: {
+          name: 'Tatar',
+          nativeName: 'татарча, tatarça, تاتارچا\u200e'
+        },
+        tw: {
+          name: 'Twi',
+          nativeName: 'Twi'
+        },
+        ty: {
+          name: 'Tahitian',
+          nativeName: 'Reo Tahiti'
+        },
+        ug: {
+          name: 'Uighur, Uyghur',
+          nativeName: 'Uyƣurqə, ئۇيغۇرچە\u200e'
+        },
+        uk: {
+          name: 'Ukrainian',
+          nativeName: 'українська'
+        },
+        ur: {
+          name: 'Urdu',
+          nativeName: 'اردو'
+        },
+        uz: {
+          name: 'Uzbek',
+          nativeName: 'zbek, Ўзбек, أۇزبېك\u200e'
+        },
+        ve: {
+          name: 'Venda',
+          nativeName: 'Tshivenḓa'
+        },
+        vi: {
+          name: 'Vietnamese',
+          nativeName: 'Tiếng Việt'
+        },
+        vo: {
+          name: 'Volapük',
+          nativeName: 'Volapük'
+        },
+        wa: {
+          name: 'Walloon',
+          nativeName: 'Walon'
+        },
+        cy: {
+          name: 'Welsh',
+          nativeName: 'Cymraeg'
+        },
+        wo: {
+          name: 'Wolof',
+          nativeName: 'Wollof'
+        },
+        fy: {
+          name: 'Western Frisian',
+          nativeName: 'Frysk'
+        },
+        xh: {
+          name: 'Xhosa',
+          nativeName: 'isiXhosa'
+        },
+        yi: {
+          name: 'Yiddish',
+          nativeName: 'ייִדיש'
+        },
+        yo: {
+          name: 'Yoruba',
+          nativeName: 'Yorùbá'
+        },
+        za: {
+          name: 'Zhuang, Chuang',
+          nativeName: 'Saɯ cueŋƅ, Saw cuengh'
+        }
+      }
+      
+      var localeLangs = {
+        "af-za": [
+            "Afrikaans",
+            "Afrikaans"
+        ],
+        "ar": [
+            "العربية",
+            "Arabic"
+        ],
+        "bg-bg": [
+            "Български",
+            "Bulgarian"
+        ],
+        "ca-ad": [
+            "Català",
+            "Catalan"
+        ],
+        "cs-cz": [
+            "Čeština",
+            "Czech"
+        ],
+        "cy-gb": [
+            "Cymraeg",
+            "Welsh"
+        ],
+        "da-dk": [
+            "Dansk",
+            "Danish"
+        ],
+        "de-at": [
+            "Deutsch (Österreich)",
+            "German (Austria)"
+        ],
+        "de-ch": [
+            "Deutsch (Schweiz)",
+            "German (Switzerland)"
+        ],
+        "de-de": [
+            "Deutsch (Deutschland)",
+            "German (Germany)"
+        ],
+        "el-gr": [
+            "Ελληνικά",
+            "Greek"
+        ],
+        "en-gb": [
+            "English (UK)",
+            "English (UK)"
+        ],
+        "en-us": [
+            "English (US)",
+            "English (US)"
+        ],
+        "es-cl": [
+            "Español (Chile)",
+            "Spanish (Chile)"
+        ],
+        "es-es": [
+            "Español (España)",
+            "Spanish (Spain)"
+        ],
+        "es-mx": [
+            "Español (México)",
+            "Spanish (Mexico)"
+        ],
+        "et-ee": [
+            "Eesti",
+            "Estonian"
+        ],
+        "eu": [
+            "Euskara",
+            "Basque"
+        ],
+        "fa-ir": [
+            "فارسی",
+            "Persian"
+        ],
+        "fi-fi": [
+            "Suomi",
+            "Finnish"
+        ],
+        "fr-ca": [
+            "Français (Canada)",
+            "French (Canada)"
+        ],
+        "fr-fr": [
+            "Français (France)",
+            "French (France)"
+        ],
+        "he-il": [
+            "עברית",
+            "Hebrew"
+        ],
+        "hr-hr": [
+            "Hrvatski",
+            "Croatian"
+        ],
+        "hu-hu": [
+            "Magyar",
+            "Hungarian"
+        ],
+        "id-id": [
+            "Bahasa Indonesia",
+            "Indonesian"    
+        ],
+        "is-is": [
+            "Íslenska",
+            "Icelandic"
+        ],
+        "it-it": [
+            "Italiano",
+            "Italian"
+        ],
+        "ja-jp": [
+            "日本語",
+            "Japanese"
+        ],
+        "km-km": [
+            "ភាសាខ្មែរ",
+            "Khmer"
+        ],
+        "ko-kr": [
+            "한국어",
+            "Korean"
+        ],
+        "lt-lt": [
+            "Lietuvių",
+            "Lithuanian"
+        ],
+        "lv-lv": [
+            "Latviešu",
+            "Latvian"
+        ],
+        "mn-mn": [
+            "Монгол",
+            "Mongolian"
+        ],
+        "nb-no": [
+            "Norsk bokmål",
+            "Norwegian (Bokmål)"
+        ],
+        "nl-nl": [
+            "Nederlands",
+            "Dutch"
+        ],
+        "nn-no": [
+            "Norsk nynorsk",
+            "Norwegian (Nynorsk)"
+        ],
+        "pl-pl": [
+            "Polski",
+            "Polish"
+        ],
+        "pt-br": [
+            "Português (Brasil)",
+            "Portuguese (Brazil)"
+        ],
+        "pt-pt": [
+            "Português (Portugal)",
+            "Portuguese (Portugal)"
+        ],
+        "ro-ro": [
+            "Română",
+            "Romanian"
+        ],
+        "ru-ru": [
+            "Русский",
+            "Russian"
+        ],
+        "sk-sk": [
+            "Slovenčina",
+            "Slovak"
+        ],
+        "sl-si": [
+            "Slovenščina",
+            "Slovenian"
+        ],
+        "sr-rs": [
+            "Српски / Srpski",
+            "Serbian"
+        ],
+        "sv-se": [
+            "Svenska",
+            "Swedish"
+        ],
+        "th-th": [
+            "ไทย",
+            "Thai"
+        ],
+        "tr-tr": [
+            "Türkçe",
+            "Turkish"
+        ],
+        "uk-ua": [
+            "Українська",
+            "Ukrainian"
+        ],
+        "vi-vn": [
+            "Tiếng Việt",
+            "Vietnamese"
+        ],
+        "zh-cn": [
+            "中文 (中国大陆)",
+            "Chinese (PRC)"
+        ],
+        "zh-tw": [
+            "中文 (台灣)",
+            "Chinese (Taiwan)"
+        ]
+    }
+    lang = lang.toLowerCase()
+    if(lang.length == 2){
+        if(isoLangs[lang] != null){
+            return isoLangs[lang].name;
+        }
+        else{
+            return lang;
+        }
+    }
+    else if(lang.length > 2){
+        if(localeLangs[lang] != null){
+            return localeLangs[lang][1];
+        }
+        else{
+            return lang;
+        }
+    }
+    else{
+        return lang;
+    }
 }

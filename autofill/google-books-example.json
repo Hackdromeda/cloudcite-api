@@ -1,0 +1,79 @@
+{
+ "kind": "books#volume",
+ "id": "44qi9P-COd4C",
+ "etag": "YVnqKfk6ps0",
+ "selfLink": "https://www.googleapis.com/books/v1/volumes/44qi9P-COd4C",
+ "volumeInfo": {
+  "title": "A Streetcar Named Desire",
+  "subtitle": "Play in Three Acts",
+  "authors": [
+   "Tennessee Williams"
+  ],
+  "publisher": "Dramatists Play Service Inc",
+  "publishedDate": "1953",
+  "description": "THE STORY: The play reveals to the very depths the character of Blanche du Bois, a woman whose life has been undermined by her romantic illusions, which lead her to reject--so far as possible--the realities of life with which she is faced and which s",
+  "industryIdentifiers": [
+   {
+    "type": "ISBN_10",
+    "identifier": "0822210894"
+   },
+   {
+    "type": "ISBN_13",
+    "identifier": "9780822210894"
+   }
+  ],
+  "readingModes": {
+   "text": false,
+   "image": true
+  },
+  "pageCount": 107,
+  "printedPageCount": 118,
+  "dimensions": {
+   "height": "20.00 cm",
+   "width": "12.70 cm",
+   "thickness": "0.60 cm"
+  },
+  "printType": "BOOK",
+  "categories": [
+   "Drama / American / General"
+  ],
+  "averageRating": 4.0,
+  "ratingsCount": 44,
+  "maturityRating": "NOT_MATURE",
+  "allowAnonLogging": false,
+  "contentVersion": "0.0.1.0.preview.1",
+  "imageLinks": {
+   "smallThumbnail": "http://books.google.com/books/content?id=44qi9P-COd4C&printsec=frontcover&img=1&zoom=5&edge=curl&imgtk=AFLRE73HEwy-IrYYNcnC1s2E-3CqwEeC1mGGpVa_DnOVzMKGMsBUyRnngiaK5mgaAluS6RoAebc1uwzxMOMfMdpTkDS_WtYgvBkZ4BBbfPlacf895kkdGx7WQ9wsB_twIDtLXz0aaFs2&source=gbs_api",
+   "thumbnail": "http://books.google.com/books/content?id=44qi9P-COd4C&printsec=frontcover&img=1&zoom=1&edge=curl&imgtk=AFLRE71XYA-1cOPG7x2Z_M5fX5H9AUYMzr5xQEyd0hXnd5PA1ohnI6ksCnH0-9-pauRFJ0Xg3qxsmIQFUeUb6hH6fQgXkwSCLEgR0vip_L2HEDSLL2xh198vQEDCwnXPCwlQU2sgatJZ&source=gbs_api",
+   "small": "http://books.google.com/books/content?id=44qi9P-COd4C&printsec=frontcover&img=1&zoom=2&edge=curl&imgtk=AFLRE71HSAx6BQxAD4K2c8dkZ5549hqn7TZbAPFa8eW-W_2D7GAlX2MdOjx46MsXfcNV9OT8KAHFEwU4Vi8QK_MxXcyPJLN0SZUMRRPDnsW6DoSOKs5KAPmBZHHEmDoB0ZHmitig_ZCB&source=gbs_api",
+   "medium": "http://books.google.com/books/content?id=44qi9P-COd4C&printsec=frontcover&img=1&zoom=3&edge=curl&imgtk=AFLRE72RYwRIntTHXGWGxBkpeKKoJiJpLt24wnM1GgMKQAN8PqzECVCQBepMUls-BRVp4sMTNcdx1pnEjN1jCzrlIzkRaC11aQSmjDy5FFD40BIMbdecj8jLZpoLv3bF9u5tvIfoykAE&source=gbs_api",
+   "large": "http://books.google.com/books/content?id=44qi9P-COd4C&printsec=frontcover&img=1&zoom=4&edge=curl&imgtk=AFLRE73K0G37Ffr-OtcWLz19Wz2pjWjQYQYcwtJ0whMCL6RELnfE9HigwL2fimZimyS-p4HjMRAjV19sue2xDRlHN2lo3ZiNYFF9foJ8L5uTtvLLy3RhKKnnPOIZl93ZscqYdZ6KvqYd&source=gbs_api",
+   "extraLarge": "http://books.google.com/books/content?id=44qi9P-COd4C&printsec=frontcover&img=1&zoom=6&edge=curl&imgtk=AFLRE73AWdr7j5O-ShXzvdfIKRq5J2r2hXmpOvpSO_Fo0HkxUVlTwT-jJY1yF3MDRWBspE6uIU48l_qHiVC5t0wzSbvESh_dOiwGHMNa5J_ucnUNRJJHlAGL-KwlONY-5utgTX_Ulbqv&source=gbs_api"
+  },
+  "language": "en",
+  "previewLink": "http://books.google.com/books?id=44qi9P-COd4C&hl=&source=gbs_api",
+  "infoLink": "https://play.google.com/store/books/details?id=44qi9P-COd4C&source=gbs_api",
+  "canonicalVolumeLink": "https://market.android.com/details?id=book-44qi9P-COd4C"
+ },
+ "saleInfo": {
+  "country": "US",
+  "saleability": "NOT_FOR_SALE",
+  "isEbook": false
+ },
+ "accessInfo": {
+  "country": "US",
+  "viewability": "PARTIAL",
+  "embeddable": true,
+  "publicDomain": false,
+  "textToSpeechPermission": "ALLOWED",
+  "epub": {
+   "isAvailable": false
+  },
+  "pdf": {
+   "isAvailable": false
+  },
+  "webReaderLink": "http://play.google.com/books/reader?id=44qi9P-COd4C&hl=&printsec=frontcover&source=gbs_api",
+  "accessViewStatus": "SAMPLE",
+  "quoteSharingAllowed": false
+ }
+}
