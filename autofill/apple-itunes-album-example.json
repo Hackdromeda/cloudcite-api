@@ -1,0 +1,26 @@
+{
+    "resultCount": 1,
+    "results": [{
+        "wrapperType": "collection",
+        "collectionType": "Album",
+        "artistId": 157749142,
+        "collectionId": 1244230120,
+        "amgArtistId": 672134,
+        "artistName": "DJ Khaled",
+        "collectionName": "Grateful",
+        "collectionCensoredName": "Grateful",
+        "artistViewUrl": "https://itunes.apple.com/us/artist/dj-khaled/157749142?uo=4",
+        "collectionViewUrl": "https://itunes.apple.com/us/album/grateful/1244230120?uo=4",
+        "artworkUrl60": "https://is1-ssl.mzstatic.com/image/thumb/Music117/v4/5b/bd/4b/5bbd4b35-f234-6366-3fa1-2f45431f861b/source/60x60bb.jpg",
+        "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music117/v4/5b/bd/4b/5bbd4b35-f234-6366-3fa1-2f45431f861b/source/100x100bb.jpg",
+        "collectionPrice": 12.99,
+        "collectionExplicitness": "explicit",
+        "contentAdvisoryRating": "Explicit",
+        "trackCount": 23,
+        "copyright": "℗ 2017 Epic Records, a division of Sony Music Entertainment",
+        "country": "USA",
+        "currency": "USD",
+        "releaseDate": "2017-06-23T07:00:00Z",
+        "primaryGenreName": "Hip-Hop/Rap"
+    }]
+}
