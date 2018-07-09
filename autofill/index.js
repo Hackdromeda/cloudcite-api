@@ -9,7 +9,7 @@ const got = require('got');
 exports.handler = function(event, context, callback) {
     var headers = event.headers;
     headers = ConvertKeysToLowerCase(headers);
-    var request = JSON.parse(event.body);
+    var request = ConvertKeysToLowerCase(JSON.parse(event.body));
 /*     if(headers["content-type"] != null && headers["content-type"].toLowerCase() != "application/json"){
         var body = {
             "error": "the server can only accept data in the application/json format"
@@ -85,6 +85,7 @@ exports.handler = function(event, context, callback) {
                         "publisher": null,
                         "source": null,
                         "URL": request.url,
+                        "abstract": null,
                         "type": "webpage"
                     };
                     var rootDomain = extractRootDomain(request.url).toLowerCase();
@@ -115,6 +116,9 @@ exports.handler = function(event, context, callback) {
                     });
                     if(meta != null && meta.publisher != null && meta.publisher != ""){
                         publishers.push(meta.publisher);
+                    }
+                    if(meta != null && meta.description != null && meta.description != ""){
+                        citation.abstract = meta.description;
                     }
                     citation.title = $('meta[property="og:title"]').attr('content');
                     if (citation.title == null || citation.title == "") {
@@ -279,7 +283,7 @@ exports.handler = function(event, context, callback) {
             });
             break;              
         case 'movie':
-            if((request.title == null || request.title == "") && (request.ID == null || request.ID == "")){
+            if((request.title == null || request.title == "") && (request.movie == null || request.movie == "")){
                 var body = {
                     "error": "expected movie title or movie ID"
                 };
@@ -360,14 +364,14 @@ exports.handler = function(event, context, callback) {
                var infoRP = rp(infoOptions); 
                Bluebird.all([creditsRP, infoRP])
                    .spread(function (credits, details) {
-                    var ID = request.ID == null ? "SET" : request.ID;
+                    var id = request.id == null ? "SET" : request.id;
                     var citation = {
                         "issued": {
                             "month": null,
                             "year": null,
                             "day": null
                         },
-                        "id": ID,
+                        "id": id,
                         "director": [],
                         "title": null,
                         "publisher": null,
@@ -451,6 +455,153 @@ exports.handler = function(event, context, callback) {
                     };
                     var response = {
                         "statusCode": 404,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": JSON.stringify(body),
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
+                });
+            }
+            break;
+        case 'book':
+            var search = (request.title == null || request.title == "") && (request.isbn == null || request.isbn == "") && (request.lccn == null || request.lccn == "") && (request.oclc == null || request.oclc == "");
+            var details = (request.book == null || request.book == "");
+            if(search && details){
+                var body = {
+                    "error": "expected book title or book ID"
+                };
+                var response = {
+                    "statusCode": 422,
+                    "headers": {
+                        "Access-Control-Allow-Origin" : "*",
+                        "Access-Control-Allow-Credentials" : true
+                    },
+                    "body": JSON.stringify(body),
+                    "isBase64Encoded": false
+                };
+                return callback(null, response);
+            }
+            if(details){ // If details are unavailable, perform search
+                var url = "https://www.googleapis.com/books/v1/volumes?key=" + process.env.GOOGLE + "&q=";
+                if(request.title != null && request.title != ""){
+                    url = url + request.title;
+                }
+                else if(request.isbn != null && request.isbn != ""){
+                    url = url + "isbn:" + request.isbn;
+                }
+                else if(request.lccn != null && request.lccn != ""){
+                    url = url + "lccn:" + request.lccn;
+                }
+                else if(request.oclc != null && request.oclc != ""){
+                    url = url + "oclc:" + request.oclc;
+                }
+                else{
+                    var body = {
+                        "error": "expected book title, isbn, lccn, oclc, or id"
+                    };
+                    var response = {
+                        "statusCode": 422,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": JSON.stringify(body),
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
+                }
+                rp({
+                    uri: url,
+                    method: 'GET',
+                    timeout: 4000,
+                    transform: function(body) {
+                        return body;
+                    }
+                }).then((body) => {
+                    var response = {
+                        "statusCode": 200,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": body,
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
+                }).catch(function (err) {
+                    console.log("Error in RP:" + err);
+                    var body = {
+                        "error": "book not found"
+                    };
+                    var response = {
+                        "statusCode": 404,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": JSON.stringify(body),
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
+                });
+            }
+            else{
+                var url = "https://www.googleapis.com/books/v1/volumes/" + request.book + "?key=" + process.env.GOOGLE;
+                rp({
+                    uri: request.url,
+                    timeout: 4000,
+                    transform: function(body) {
+                        return cheerio.load(body);
+                    }
+                }).then(($) => {
+                    var id = request.id == null ? "SET" : request.id;
+                    var citation = {
+                        "issued": {
+                            "month": null,
+                            "year": null,
+                            "day": null
+                        },
+                        "id": id,
+                        "author": [],
+                        "editor": [],
+                        "collection-editor": [],
+                        "translator": [],
+                        "edition": null,
+                        "language": null,
+                        "title": null,
+                        "title-short": null,
+                        "publisher": null,
+                        "publisher-place": null,
+                        "ISBN": null,
+                        "number-of-pages": null,
+                        "number-of-volumes": null,
+                        "source": null,
+                        "URL": null,
+                        "abstract": null,
+                        "collection-title": null,
+                        "type": "book"
+                    };
+                    citation = JSON.stringify(citation)
+                    var response = {
+                        "statusCode": 200,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": citation,
+                        "isBase64Encoded": false
+                    };
+                    callback(null, response);
+                }).catch(function (err) {
+                    console.log("Error in RP:" + err);
+                    var body = {
+                        "error": "book id error"
+                    };
+                    var response = {
+                        "statusCode": 422,
                         "headers": {
                             "Access-Control-Allow-Origin" : "*",
                             "Access-Control-Allow-Credentials" : true
