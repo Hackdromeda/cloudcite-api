@@ -725,6 +725,7 @@ exports.handler = function(event, context, callback) {
                     "body": JSON.stringify(body),
                     "isBase64Encoded": false
                 };
+                return callback(null, response);
             }
             if(request.type.toLowerCase() == "song"){
                 var search = (request.title == null || request.title == "");
@@ -841,7 +842,7 @@ exports.handler = function(event, context, callback) {
                         };
                         if(body != null){
                             if(body.resultCount != null){
-                                if(body.resultCount.parseInt() == 0){
+                                if(body.resultCount.toString() == "0"){
                                     var body = {
                                         "error": "song not found"
                                     };
@@ -1048,7 +1049,7 @@ exports.handler = function(event, context, callback) {
                         };
                         if(body != null){
                             if(body.resultCount != null){
-                                if(body.resultCount.parseInt() == 0){
+                                if(body.resultCount.toString() == "0"){
                                     var body = {
                                         "error": "song not found"
                                     };
@@ -1152,9 +1153,484 @@ exports.handler = function(event, context, callback) {
                     },
                     "body": JSON.stringify(body),
                     "isBase64Encoded": false
-                }; 
+                };
+                return callback(null, response);
             }
-            break;    
+            break;  
+        case 'podcast':
+            if(request.type == null || request.type == ""){
+                var body = {
+                    "error": "invalid, unsupported, or missing podcast type"
+                };
+                var response = {
+                    "statusCode": 422,
+                    "headers": {
+                        "Access-Control-Allow-Origin" : "*",
+                        "Access-Control-Allow-Credentials" : true
+                    },
+                    "body": JSON.stringify(body),
+                    "isBase64Encoded": false
+                };
+                return callback(null, response);
+            }
+            if(request.type.toLowerCase() == "podcast"){
+                var search = (request.title == null || request.title == "");
+                var details = (request.podcast == null || request.podcast == "");
+                if(search && details){
+                    var body = {
+                        "error": "expected podcast title or id"
+                    };
+                    var response = {
+                        "statusCode": 422,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": JSON.stringify(body),
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
+                }
+                if(details){ // If details are unavailable, perform search
+                    var url = "https://itunes.apple.com/search?entity=podcast&term=";
+                    if(request.title != null && request.title != ""){
+                        url = url + request.title;
+                    }
+                    else{
+                        var body = {
+                            "error": "expected podcast title or id"
+                        };
+                        var response = {
+                            "statusCode": 422,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    }
+                    rp({
+                        uri: url,
+                        method: 'GET',
+                        timeout: 4000,
+                        transform: function(body) {
+                            return body;
+                        }
+                    }).then((body) => {
+                        var response = {
+                            "statusCode": 200,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": body,
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    }).catch(function (err) {
+                        console.log("Error in RP:" + err);
+                        var body = {
+                            "error": "podcast not found"
+                        };
+                        var response = {
+                            "statusCode": 404,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    });
+                }
+                else{
+                    var url;
+                    if(request.podcast != null && request.podcast != ""){
+                        url = "https://itunes.apple.com/lookup?id=" + request.podcast;
+                    }
+                    rp({
+                        uri: url,
+                        method: 'GET',
+                        timeout: 4000,
+                        transform: function(body) {
+                            return JSON.parse(body);
+                        }
+                    }).then((body) => {
+                        var id = request.id == null ? "SET" : request.id;
+                        var citation = {
+                            "issued": {
+                                "month": null,
+                                "year": null,
+                                "day": null
+                            },
+                            "id": id,
+                            "author": [],
+                            "composer": [],
+                            "editor": [],
+                            "edition": null,
+                            "language": null,
+                            "title": null,
+                            "title-short": null,
+                            "publisher": null,
+                            "publisher-place": null,
+                            "source": null,
+                            "URL": null,
+                            "abstract": null,
+                            "collection-title": null,
+                            "genre": null,
+                            "type": "song"
+                        };
+                        if(body != null){
+                            if(body.resultCount != null){
+                                if(body.resultCount.toString() == "0"){
+                                    var body = {
+                                        "error": "podcast not found"
+                                    };
+                                    var response = {
+                                        "statusCode": 404,
+                                        "headers": {
+                                            "Access-Control-Allow-Origin" : "*",
+                                            "Access-Control-Allow-Credentials" : true
+                                        },
+                                        "body": JSON.stringify(body),
+                                        "isBase64Encoded": false
+                                    };
+                                    return callback(null, response);
+                                }
+                            }
+                            if(body.results[0] !=  null){
+                                if(body.results[0].releaseDate != null && body.results[0].releaseDate != ""){
+                                    var date = new Date(body.results[0].releaseDate)
+                                    citation.issued.month = (date.getMonth() + 1).toString();
+                                    citation.issued.day = date.getDate().toString();
+                                    citation.issued.year = date.getFullYear().toString();
+                                }
+                                if(body.results[0].trackName != null && body.results[0].trackName != ""){
+                                    citation.title = body.results[0].trackName;
+                                }
+                                if(body.results[0].primaryGenreName != null && body.results[0].primaryGenreName != ""){
+                                    citation.genre = body.results[0].primaryGenreName;
+                                }
+                                if(body.results[0].collectionName != null && body.results[0].collectionName != ""){
+                                    citation["collection-title"] = body.results[0].collectionName;
+                                }
+                                if(body.results[0].artistName != null && body.results[0].artistName != ""){
+                                    var authors = splitMulti(body.results[0].artistName, [' and ', ', ', ' & '])
+                                    for(var i = 0; i < authors.length; i++){
+                                        if(authors[i] != null){      
+                                            var fullName = authors[i].split(' ');
+                                            var given;
+                                            var firstName = fullName[0];
+                                            var middleName;
+                                            var lastName;
+                                            if(fullName.length >= 2){
+                                                lastName = fullName[fullName.length - 1];
+                                            }
+                                            if(fullName.length == 3){
+                                                middleName = fullName[fullName.length - 2];
+                                            }
+                                            if(fullName.length > 3){
+                                                for(var j = 1; j > fullName.length - 2; j++){
+                                                    firstName = firstName + " " + fullName[j];
+                                                }
+                                                middleName = fullName[fullName.length - 2];
+                                            }
+                                            given = firstName;
+                                            if (middleName != null){
+                                                given = firstName + " " + middleName;
+                                            }
+                                            citation.author.push({given: given, family: lastName});
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        citation = JSON.stringify(citation)
+                        var response = {
+                            "statusCode": 200,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": citation,
+                            "isBase64Encoded": false
+                        };
+                        callback(null, response);
+                    }).catch(function (err) {
+                        console.log("Error in RP:" + err);
+                        var body = {
+                            "error": "song id error"
+                        };
+                        var response = {
+                            "statusCode": 422,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    });
+                }
+            }
+            else if(request.type.toLowerCase() == "episode"){
+                var search = (request.title == null || request.title == "");
+                var details = (request.podcast == null || request.podcast == "");
+                if(search && details){
+                    var body = {
+                        "error": "expected podcast title or id"
+                    };
+                    var response = {
+                        "statusCode": 422,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": JSON.stringify(body),
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
+                }
+                if(details){ // If details are unavailable, perform search
+                    var url = "https://itunes.apple.com/search?entity=podcast&term=";
+                    if(request.title != null && request.title != ""){
+                        url = url + request.title;
+                    }
+                    else{
+                        var body = {
+                            "error": "expected podcast title or id"
+                        };
+                        var response = {
+                            "statusCode": 422,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    }
+                    rp({
+                        uri: url,
+                        method: 'GET',
+                        timeout: 4000,
+                        transform: function(body) {
+                            return body;
+                        }
+                    }).then((body) => {
+                        var response = {
+                            "statusCode": 200,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": body,
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    }).catch(function (err) {
+                        console.log("Error in RP:" + err);
+                        var body = {
+                            "error": "podcast not found"
+                        };
+                        var response = {
+                            "statusCode": 404,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    });
+                }
+                else{
+                    var url;
+                    if(request.podcast != null && request.podcast != ""){
+                        url = "https://itunes.apple.com/lookup?id=" + request.podcast;
+                    }
+                    rp({
+                        uri: url,
+                        method: 'GET',
+                        timeout: 4000,
+                        transform: function(body) {
+                            return JSON.parse(body);
+                        }
+                    }).then((body) => {
+                        var id = request.id == null ? "SET" : request.id;
+                        var citation = {
+                            "issued": {
+                                "month": null,
+                                "year": null,
+                                "day": null
+                            },
+                            "id": id,
+                            "author": [],
+                            "composer": [],
+                            "editor": [],
+                            "edition": null,
+                            "language": null,
+                            "title": null,
+                            "title-short": null,
+                            "publisher": null,
+                            "publisher-place": null,
+                            "source": null,
+                            "URL": null,
+                            "abstract": null,
+                            "collection-title": null,
+                            "genre": null,
+                            "type": "song"
+                        };
+                        if(body != null){
+                            if(body.resultCount != null){
+                                if(body.resultCount.toString() == "0"){
+                                    var body = {
+                                        "error": "podcast not found"
+                                    };
+                                    var response = {
+                                        "statusCode": 404,
+                                        "headers": {
+                                            "Access-Control-Allow-Origin" : "*",
+                                            "Access-Control-Allow-Credentials" : true
+                                        },
+                                        "body": JSON.stringify(body),
+                                        "isBase64Encoded": false
+                                    };
+                                    return callback(null, response);
+                                }
+                            }
+                            if(body.results[0] !=  null){
+                                if(body.results[0].releaseDate != null && body.results[0].releaseDate != ""){
+                                    var date = new Date(body.results[0].releaseDate)
+                                    citation.issued.month = (date.getMonth() + 1).toString();
+                                    citation.issued.day = date.getDate().toString();
+                                    citation.issued.year = date.getFullYear().toString();
+                                }
+                                if(body.results[0].primaryGenreName != null && body.results[0].primaryGenreName != ""){
+                                    citation.genre = body.results[0].primaryGenreName;
+                                }
+                                if(body.results[0].primaryGenreName != null && body.results[0].primaryGenreName != ""){
+                                    citation.genre = body.results[0].primaryGenreName;
+                                }
+                                if(body.results[0].feedUrl != null && body.results[0].feedUrl != ""){
+                                    url = body.results[0].feedUrl; // Podcast Episode Data (XML); iTunes Only Provides Podcast Data
+                                    rp({
+                                        uri: url,
+                                        method: 'GET',
+                                        timeout: 4000,
+                                        transform: function(body) {
+                                            return body;
+                                        }
+                                    }).then((body) => {
+                                        // XML to JSON
+                                    }).catch(function (err) {
+                                        console.log("Error in RP:" + err);
+                                        var body = {
+                                            "error": "podcast episode error"
+                                        };
+                                        var response = {
+                                            "statusCode": 422,
+                                            "headers": {
+                                                "Access-Control-Allow-Origin" : "*",
+                                                "Access-Control-Allow-Credentials" : true
+                                            },
+                                            "body": JSON.stringify(body),
+                                            "isBase64Encoded": false
+                                        };
+                                        return callback(null, response);
+                                    });
+                                }
+                                if(body.results[0].copyright != null && body.results[0].copyright != ""){
+                                    citation.publisher = sanitizeInput(body.results[0].copyright.replace(/[0-9][0-9][0-9][0-9]/g, '')).trim();
+                                }
+                                if(body.results[0].artistName != null && body.results[0].artistName != ""){
+                                    var authors = splitMulti(body.results[0].artistName, [' and ', ', ', ' & '])
+                                    for(var i = 0; i < authors.length; i++){
+                                        if(authors[i] != null){      
+                                            var fullName = authors[i].split(' ');
+                                            var given;
+                                            var firstName = fullName[0];
+                                            var middleName;
+                                            var lastName;
+                                            if(fullName.length >= 2){
+                                                lastName = fullName[fullName.length - 1];
+                                            }
+                                            if(fullName.length == 3){
+                                                middleName = fullName[fullName.length - 2];
+                                            }
+                                            if(fullName.length > 3){
+                                                for(var j = 1; j > fullName.length - 2; j++){
+                                                    firstName = firstName + " " + fullName[j];
+                                                }
+                                                middleName = fullName[fullName.length - 2];
+                                            }
+                                            given = firstName;
+                                            if (middleName != null){
+                                                given = firstName + " " + middleName;
+                                            }
+                                            citation.author.push({given: given, family: lastName});
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        citation = JSON.stringify(citation)
+                        var response = {
+                            "statusCode": 200,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": citation,
+                            "isBase64Encoded": false
+                        };
+                        callback(null, response);
+                    }).catch(function (err) {
+                        console.log("Error in RP:" + err);
+                        var body = {
+                            "error": "podcast id error"
+                        };
+                        var response = {
+                            "statusCode": 422,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    });
+                }    
+            }
+            else{
+                var body = {
+                    "error": "invalid, unsupported, or missing music type"
+                };
+                var response = {
+                    "statusCode": 422,
+                    "headers": {
+                        "Access-Control-Allow-Origin" : "*",
+                        "Access-Control-Allow-Credentials" : true
+                    },
+                    "body": JSON.stringify(body),
+                    "isBase64Encoded": false
+                };
+                return callback(null, response);
+            }
+            break;
+        case 'journal': 
+            break; 
+        case 'tv': 
+            break;   
+        case 'image': 
+            break;                   
         default:
             //console.log('Format is invalid');
             //console.log("request: " + JSON.stringify(event));
