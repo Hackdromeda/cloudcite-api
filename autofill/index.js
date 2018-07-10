@@ -1141,6 +1141,235 @@ exports.handler = function(event, context, callback) {
                     });
                 }    
             }
+            else if(request.type.toLowerCase() == "song-in-album"){
+                var search = (request.album == null || request.album == "") && (request.upc == null || request.upc == "");
+                var details = (request.number == null || request.number == "");
+                if(search && details){
+                    var body = {
+                        "error": "expected album id or upc"
+                    };
+                    var response = {
+                        "statusCode": 422,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": JSON.stringify(body),
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
+                }
+                if(details){ // If details are unavailable, perform search
+                    var url = "https://itunes.apple.com/search?entity=album&term=";
+                    if(request.album != null && request.album != ""){
+                        url = "https://itunes.apple.com/lookup?entity=song&id=" + request.album;
+                    }
+                    else if(request.upc != null && request.upc != ""){
+                        url = "https://itunes.apple.com/lookup?entity=song&id=" + request.upc;
+                    }
+                    else{
+                        var body = {
+                            "error": "expected album id or upc"
+                        };
+                        var response = {
+                            "statusCode": 422,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    }
+                    rp({
+                        uri: url,
+                        method: 'GET',
+                        timeout: 4000,
+                        transform: function(body) {
+                            return body;
+                        }
+                    }).then((body) => {
+                        var response = {
+                            "statusCode": 200,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": body,
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    }).catch(function (err) {
+                        console.log("Error in RP:" + err);
+                        var body = {
+                            "error": "book not found"
+                        };
+                        var response = {
+                            "statusCode": 404,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    });
+                }
+                else{
+                    var url;
+                    var number = parseInt("" + request.number, 10)
+                    if(request.album != null && request.album != ""){
+                        url = "https://itunes.apple.com/lookup?entity=song&id=" + request.album;
+                    }
+                    else if(request.upc != null && request.upc != ""){
+                        url = "https://itunes.apple.com/lookup?entity=song&id=" + request.upc;
+                    }
+                    else{
+                        var body = {
+                            "error": "must provide album id or upc along with song number"
+                        };
+                        var response = {
+                            "statusCode": 422,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    }
+                    rp({
+                        uri: url,
+                        method: 'GET',
+                        timeout: 4000,
+                        transform: function(body) {
+                            return JSON.parse(body);
+                        }
+                    }).then((body) => {
+                        var id = request.id == null ? "SET" : request.id;
+                        var citation = {
+                            "issued": {
+                                "month": null,
+                                "year": null,
+                                "day": null
+                            },
+                            "id": id,
+                            "author": [],
+                            "composer": [],
+                            "editor": [],
+                            "edition": null,
+                            "language": null,
+                            "title": null,
+                            "title-short": null,
+                            "publisher": null,
+                            "publisher-place": null,
+                            "source": null,
+                            "URL": null,
+                            "abstract": null,
+                            "collection-title": null,
+                            "genre": null,
+                            "type": "song"
+                        };
+                        if(body != null){
+                            if(body.resultCount != null){
+                                if(body.resultCount.toString() == "0"){
+                                    var body = {
+                                        "error": "song not found"
+                                    };
+                                    var response = {
+                                        "statusCode": 404,
+                                        "headers": {
+                                            "Access-Control-Allow-Origin" : "*",
+                                            "Access-Control-Allow-Credentials" : true
+                                        },
+                                        "body": JSON.stringify(body),
+                                        "isBase64Encoded": false
+                                    };
+                                    return callback(null, response);
+                                }
+                            }
+                            if(body.results[0] !=  null){
+                                if(body.results[number].releaseDate != null && body.results[number].releaseDate != ""){
+                                    var date = new Date(body.results[number].releaseDate)
+                                    citation.issued.month = (date.getMonth() + 1).toString();
+                                    citation.issued.day = date.getDate().toString();
+                                    citation.issued.year = date.getFullYear().toString();
+                                }
+                                if(body.results[number].trackName != null && body.results[number].trackName != ""){
+                                    citation.title = body.results[number].trackName;
+                                }
+                                if(body.results[number].primaryGenreName != null && body.results[number].primaryGenreName != ""){
+                                    citation.genre = body.results[number].primaryGenreName;
+                                }
+                                if(body.results[0].collectionName != null && body.results[0].collectionName != ""){
+                                    citation["collection-title"] = body.results[0].collectionName;
+                                }
+                                if(body.results[0].copyright != null && body.results[0].copyright != ""){
+                                    citation.publisher = sanitizeInput(body.results[0].copyright.replace(/[0-9][0-9][0-9][0-9]/g, '')).trim();
+                                }
+                                if(body.results[number].artistName != null && body.results[number].artistName != ""){
+                                    var authors = splitMulti(body.results[number].artistName, [' and ', ', ', ' & '])
+                                    for(var i = 0; i < authors.length; i++){
+                                        if(authors[i] != null){      
+                                            var fullName = authors[i].split(' ');
+                                            var given;
+                                            var firstName = fullName[0];
+                                            var middleName;
+                                            var lastName;
+                                            if(fullName.length >= 2){
+                                                lastName = fullName[fullName.length - 1];
+                                            }
+                                            if(fullName.length == 3){
+                                                middleName = fullName[fullName.length - 2];
+                                            }
+                                            if(fullName.length > 3){
+                                                for(var j = 1; j > fullName.length - 2; j++){
+                                                    firstName = firstName + " " + fullName[j];
+                                                }
+                                                middleName = fullName[fullName.length - 2];
+                                            }
+                                            given = firstName;
+                                            if (middleName != null){
+                                                given = firstName + " " + middleName;
+                                            }
+                                            citation.author.push({given: given, family: lastName});
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        citation = JSON.stringify(citation)
+                        var response = {
+                            "statusCode": 200,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": citation,
+                            "isBase64Encoded": false
+                        };
+                        callback(null, response);
+                    }).catch(function (err) {
+                        console.log("Error in RP:" + err);
+                        var body = {
+                            "error": "song id error"
+                        };
+                        var response = {
+                            "statusCode": 422,
+                            "headers": {
+                                "Access-Control-Allow-Origin" : "*",
+                                "Access-Control-Allow-Credentials" : true
+                            },
+                            "body": JSON.stringify(body),
+                            "isBase64Encoded": false
+                        };
+                        return callback(null, response);
+                    });
+                }    
+            }
             else{
                 var body = {
                     "error": "invalid, unsupported, or missing music type"
