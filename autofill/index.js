@@ -72,14 +72,14 @@ exports.handler = function(event, context, callback) {
                         return cheerio.load(body);
                     }
                 }).then(($) => {
-                    var ID = request.ID == null ? "SET" : request.ID;
+                    var id = request.id == null ? "SET" : request.id;
                     var citation = {
                         "issued": {
                             "month": null,
                             "year": null,
                             "day": null
                         },
-                        "id": ID,
+                        "id": id,
                         "author": [],
                         "title": null,
                         "publisher": null,
