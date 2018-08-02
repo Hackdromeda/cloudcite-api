@@ -1,13 +1,26 @@
 {
   "name": "cite",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "API that returns a formatted citation in response to a CSL-JSON.",
-  "author": "Avi Shah <as0218@pleasantonusd.net> (https://avimshah.com)",
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Avi Shah",
+    "email": "me@avimshah.com",
+    "url": "https://avimshah.com"
+  },
   "contributors": [
-    "Naval Patel <navalpatel384@outlook.com>",
-    "Faris Bokhari"
+    {
+      "name": "Avi Shah",
+      "email": "me@avimshah.com",
+      "url": "https://avimshah.com"
+    },
+    {
+      "name": "Naval Patel",
+      "email": "navalpatel384@gmail.com",
+      "url": "https://navalpatel.me"
+    }
   ],
-  "private": true,
+  "private": false,
   "scripts": {
     "dev": "node index.js",
     "test": "node index.js"

@@ -1,16 +1,15 @@
-const AWS = require('aws-sdk');
 const CSL = require("citeproc");
-const fs = require("fs"); //move XML en-us to code later
-var citeproc = require("citeproc-js-node");
-//docs for citeproc https://citeproc-js.readthedocs.io/en/latest/index.html
+const fs = require("fs");
+var citeproc = require("citeproc-js-node"); //docs for citeproc https://citeproc-js.readthedocs.io/en/latest/index.html
 
 exports.handler = function(event, context, callback) {
     //var headers = event.headers;
     //headers = ConvertKeysToLowerCase(headers);
-    var request = JSON.parse(event.body); //[required: { style: "modern-language-association"}, locale: "locales-en-US", csl: {<csl stuff>}]
+    var request = JSON.parse(event.body);
     if (request == null || request == "") {
         var body = {
-			"error": "empty request"
+            "error": "empty request",
+            "explanation": "Our API did not receive anything in the body of the POST request."
 		};
         var response = {
             "statusCode": 400,
@@ -25,82 +24,86 @@ exports.handler = function(event, context, callback) {
     }
 	var sys = new citeproc.simpleSys();
 	var localeLocation = './locales/' + request.locale + '.xml';
-    var enUS = fs.readFileSync(localeLocation, 'utf8');
-	sys.addLocale('en-US', enUS);
+	var localeFile = '';
+	if(!fs.existsSync(localeLocation)) {
+		var body = {
+            "error": "locale does not exist",
+            "explanation": "Our API could not find the locale that the application requested. Please let us know about this error and the language or locale selected."
+		};
+        var response = {
+            "statusCode": 404,
+            "headers": {
+                "Access-Control-Allow-Origin" : "*",
+                "Access-Control-Allow-Credentials" : true
+            },
+            "body": JSON.stringify(body),
+            "isBase64Encoded": false
+        };
+        return callback(null, response);
+	}
+	else {
+		localeFile = fs.readFileSync(localeLocation, 'utf8');
+	}
+	sys.addLocale('en-US', localeFile);
 	var styleLocation = './styles/' + request.style + '.csl';
-    var styleString = fs.readFileSync(styleLocation, 'utf8');
+    var styleString = ''; 
+	if(!fs.existsSync(styleLocation)) {
+		var body = {
+            "error": "style does not exist",
+            "explanation": "Our API could not find the style that the application requested. Please let us know about this error and the style selected."
+		};
+        var response = {
+            "statusCode": 404,
+            "headers": {
+                "Access-Control-Allow-Origin" : "*",
+                "Access-Control-Allow-Credentials" : true
+            },
+            "body": JSON.stringify(body),
+            "isBase64Encoded": false
+        };
+        return callback(null, response);
+	}
+	else {
+        styleString = fs.readFileSync(styleLocation, 'utf8');
+        var parentpath = "";
+        if(request.style.includes("dependent/")){
+            parentpath = styleString.match(/<link.*?href="?(https?:\/\/[\w.\-/]*)"?.*?rel="?independent-parent"?.*?\/>/gi);
+            if(parentpath[0] != null){
+                parentpath = parentpath[0].match(/https?:\/\/www\.zotero\.org\/styles\/([\w-]*)/i)
+            }
+            else{
+                parentpath = request.style;
+            }
+            if(parentpath[1] != null){
+                parentpath = parentpath[1];
+            }
+            else{
+                parentpath = request.style;
+            }
+            styleLocation = './styles/' + parentpath + '.csl';
+            if(!fs.existsSync(styleLocation)) {
+                var body = {
+                    "error": "parent style does not exist",
+                    "explanation": "Our API could not find the parent style that the application requested. Please let us know about this error and the dependent style selected."
+                };
+                var response = {
+                    "statusCode": 404,
+                    "headers": {
+                        "Access-Control-Allow-Origin" : "*",
+                        "Access-Control-Allow-Credentials" : true
+                    },
+                    "body": JSON.stringify(body),
+                    "isBase64Encoded": false
+                };
+                return callback(null, response);
+            }
+            else {
+                styleString = fs.readFileSync(styleLocation, 'utf8');
+            }
+        }
+	}
 	var engine = sys.newEngine(styleString, 'en-US', null);
 	var items = request.csl;
-/*     var items = {
-  		"14058/RN9M5BF3": {
-		"accessed": {
-		"month": "9",
-		"year": "2010",
-		"day": "10"
-		},
-		"id": "14058/RN9M5BF3",
-		"author": [
-		{
-			"given": "Adel",
-			"family": "Hendaoui"
-		},
-		{
-			"given": "Moez",
-			"family": "Limayem"
-		},
-		{
-			"given": "Craig W.",
-			"family": "Thompson"
-		}
-		],
-		"title": "3D Social Virtual Worlds: <i>Research Issues and Challenges</i>",
-		"type": "article-journal",
-		"versionNumber": 6816
-  		},
-		"14058/NSBERGDK": {
-			"accessed": {
-			"month": "9",
-			"year": "2010",
-			"day": "10"
-			},
-			"issued": {
-			"month": "6",
-			"year": "2009"
-			},
-			"event-place": "Istanbul",
-			"type": "paper-conference",
-			"DOI": "10.1109/DEST.2009.5276761",
-			"page-first": "151",
-			"id": "14058/NSBERGDK",
-			"title-short": "3D virtual worlds as collaborative communities enriching human endeavours",
-			"publisher-place": "Istanbul",
-			"author": [
-			{
-				"given": "C.",
-				"family": "Dreher"
-			},
-			{
-				"given": "T.",
-				"family": "Reiners"
-			},
-			{
-				"given": "N.",
-				"family": "Dreher"
-			},
-			{
-				"given": "H.",
-				"family": "Dreher"
-			}
-			],
-			"title": "3D virtual worlds as collaborative communities enriching human endeavours: Innovative applications in e-Learning",
-			"shortTitle": "3D virtual worlds as collaborative communities enriching human endeavours",
-			"page": "151-156",
-			"event": "2009 3rd IEEE International Conference on Digital Ecosystems and Technologies (DEST)",
-			"URL": "http://ieeexplore.ieee.org/lpdocs/epic03/wrapper.htm?arnumber=5276761",
-			"versionNumber": 1
-		}
-	}; */
-    //Test case items
     sys.items = items;
     
     engine.updateItems(Object.keys(items));
@@ -119,7 +122,8 @@ exports.handler = function(event, context, callback) {
 	}
 	else {
 		var err = {
-			"error": "bibliography creation failed"
+            "error": "bibliography creation failed",
+            "explanation": "There was an unknown error creating your bibliography. Let us know about the locale, language, or style selected."
 		};
 		return callback(JSON.stringify(err), null);
 	}
