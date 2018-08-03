@@ -5,7 +5,8 @@ var citeproc = require("citeproc-js-node"); //docs for citeproc https://citeproc
 exports.handler = function(event, context, callback) {
     //var headers = event.headers;
     //headers = ConvertKeysToLowerCase(headers);
-    var request = JSON.parse(event.body);
+    var request = event.body.replace(/null/g, '""'); // Replace null keys with ""
+    request = JSON.parse(request);
     if (request == null || request == "") {
         var body = {
             "error": "empty request",
@@ -22,7 +23,11 @@ exports.handler = function(event, context, callback) {
         };
         return callback(null, response);
     }
-	var sys = new citeproc.simpleSys();
+    var sys = new citeproc.simpleSys();
+    var lang = "en-US";
+    if(request.lang != "" && request.lang != null){
+        lang = request.lang;
+    }
 	var localeLocation = './locales/' + request.locale + '.xml';
 	var localeFile = '';
 	if(!fs.existsSync(localeLocation)) {
@@ -44,7 +49,7 @@ exports.handler = function(event, context, callback) {
 	else {
 		localeFile = fs.readFileSync(localeLocation, 'utf8');
 	}
-	sys.addLocale('en-US', localeFile);
+	sys.addLocale(lang, localeFile);
 	var styleLocation = './styles/' + request.style + '.csl';
     var styleString = ''; 
 	if(!fs.existsSync(styleLocation)) {
@@ -102,7 +107,7 @@ exports.handler = function(event, context, callback) {
             }
         }
 	}
-	var engine = sys.newEngine(styleString, 'en-US', null);
+	var engine = sys.newEngine(styleString, lang, null);
 	var items = request.csl;
     sys.items = items;
     
