@@ -93192,37 +93192,64 @@ stream.once('open', function(fd) {
 */
 
 const fs = require('fs');
+var sui = true;
 var stream = fs.createWriteStream("sui.txt");
 stream.once('open', function(fd) {
 	stream.write("[")
 	for(var i = 0; i < options.length; i++){
 		if(options[i].dependent == 0){
 			if(options[i].titleShort == null || options[i].titleShort == options[i].title){
-				stream.write('{"key":"' + options[i].name + '","text":"'  + options[i].title + '"},' + '');
-
+				var write = '{"key":"' + options[i].name + '","text":"'  + options[i].title + '"';
+				if(sui){
+					write += ',"value":"' + options[i].name + '"';
+				}
+				write += checkForLang(write);
+				write += '},';
+				stream.write(write);
 			}
 			else if(options[i].titleShort != null){
-				stream.write('{"key":"' + options[i].name + '","text":"'  + options[i].title + " (" + options[i].titleShort + ")" + '"},' + '');
+				var write = '{"key":"' + options[i].name + '","text":"'  + options[i].title + " (" + options[i].titleShort + ")" + '"';
+				if(sui){
+					write += ',"value":"' + options[i].name + '"';
+				}
+				write += checkForLang(write);
+				write += '},';
+				stream.write(write);
 			}
 			else{
-				stream.write('{"key":"' + options[i].name + '","text":"'  + options[i].title + '"},' + '');
+				var write = '{"key":"' + options[i].name + '","text":"'  + options[i].title + '"';
+				if(sui){
+					write += ',"value":"' + options[i].name + '"';
+				}
+				write += checkForLang(write);
+				write += '},';
+				stream.write(write);
 			}
 		}
 		else{
 			if(options[i].titleShort == null || options[i].titleShort == options[i].title){
 				var write = '{"key":"dependent/' + options[i].name + '","text":"'  + options[i].title + '"';
+				if(sui){
+					write += ',"value":"dependent/' + options[i].name + '"';
+				}
 				write += checkForLang(write);
 				write += '},';
 				stream.write(write);
 			}
 			else if(options[i].titleShort != null){
 				var write = '{"key":"dependent/' + options[i].name + '","text":"'  + options[i].title + " (" + options[i].titleShort + ')"';
+				if(sui){
+					write += ',"value":"dependent/' + options[i].name + '"';
+				}
 				write += checkForLang(write);
 				write += '},';
 				stream.write(write);
 			}
 			else{
 				var write = '{"key":"dependent/' + options[i].name + '","text":"'  + options[i].title + '"';
+				if(sui){
+					write += ',"value":"dependent/' + options[i].name + '"';
+				}
 				write += checkForLang(write);
 				write += '},';
 				stream.write(write);
