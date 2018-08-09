@@ -28,6 +28,9 @@ exports.handler = function(event, context, callback) {
     if(request.lang != "" && request.lang != null){
         lang = request.lang;
     }
+    else{
+        lang = (request.style).replace("locales-", "");
+    }
 	var localeLocation = './locales/' + request.locale + '.xml';
 	var localeFile = '';
 	if(!fs.existsSync(localeLocation)) {

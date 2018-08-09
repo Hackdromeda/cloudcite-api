@@ -491,7 +491,7 @@ exports.handler = function(event, context, callback) {
                 return callback(null, response);
             }
             if(details){ // If details are unavailable, perform search
-                var url = "https://www.googleapis.com/books/v1/volumes?key=" + process.env.GOOGLE + "&q=";
+                var url = "https://www.googleapis.com/books/v1/volumes?maxResults=40&key=" + process.env.GOOGLE + "&q=";
                 if(request.title != null && request.title != ""){
                     url = url + request.title;
                 }
