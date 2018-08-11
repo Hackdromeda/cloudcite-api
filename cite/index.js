@@ -29,7 +29,7 @@ exports.handler = function(event, context, callback) {
         lang = request.lang;
     }
     else{
-        lang = (request.style).replace("locales-", "");
+        lang = (request.locale).replace("locales-", "");
     }
 	var localeLocation = './locales/' + request.locale + '.xml';
 	var localeFile = '';
