@@ -27,7 +27,8 @@ exports.handler = function(event, context, callback) {
     } */
     if(request == null || request == ""){
         var body = {
-            "error": "empty request"
+            "error": "empty request",
+            "explanation": "The CloudCite API did not receive any information in the request."
         };
         var response = {
             "statusCode": 400,
@@ -44,7 +45,8 @@ exports.handler = function(event, context, callback) {
         case 'website':
             if(request.url == null || request.url == ""){
                 var body = {
-                    "error": "expected website URL"
+                    "error": "expected website URL",
+                    "explanation": "The CloudCite API did not receive a valid URL to cite."
                 };
                 var response = {
                     "statusCode": 422,
@@ -83,7 +85,12 @@ exports.handler = function(event, context, callback) {
                         "author": [],
                         "title": null,
                         "publisher": null,
+                        "note": null,
+                        "container-title": null,
+                        "container-title": null,
                         "source": null,
+                        "genre": null,
+                        "language": null,
                         "URL": request.url,
                         "abstract": null,
                         "type": "webpage"
@@ -218,6 +225,12 @@ exports.handler = function(event, context, callback) {
                     if((citation.publisher != null && citation.publisher != "") && (citation.source == null || citation.source == "")){
                         citation.source = citation.publisher;
                     }
+                    if(citation.publisher != null && citation.publisher != ""){
+                        citation["container-title"] = citation.publisher;
+                    }
+                    else if(citation.source != null && citation.source != ""){
+                        citation["container-title"] = citation.source;
+                    }
                     var date;
                     date = $('meta[property="og:published_time"]').attr('content');
                     if (date == null || date == "") {
@@ -237,6 +250,9 @@ exports.handler = function(event, context, callback) {
                         citation.issued.day = date.getDate().toString();
                         citation.issued.year = date.getFullYear().toString();
                     }
+                    if(meta != null && meta.lang != null && meta.lang != ""){
+                        citation.language = convertLang(meta.lang); //ISO 639-1
+                    }
                     citation = JSON.stringify(citation)
                     //console.log('Citation: ' + citation)
                     var response = {
@@ -252,7 +268,8 @@ exports.handler = function(event, context, callback) {
                 }).catch(function (err) {
                     console.log("Error in RP:" + err);
                     var body = {
-                        "error": "cited website unavailable"
+                        "error": "cited website unavailable",
+                        "explanation": "The CloudCite API was unable to access the website you wanted to cite."
                     };
                     var response = {
                         "statusCode": 422,
@@ -268,7 +285,8 @@ exports.handler = function(event, context, callback) {
             }).catch(function (err) {
                 console.log("Error in GOT:" + err);
                 var body = {
-                    "error": "cited website unavailable"
+                    "error": "cited website unavailable",
+                    "explanation": "The CloudCite API was unable to access the website you wanted to cite."
                 };
                 var response = {
                     "statusCode": 422,
@@ -285,7 +303,8 @@ exports.handler = function(event, context, callback) {
         case 'movie':
             if((request.title == null || request.title == "") && (request.movie == null || request.movie == "")){
                 var body = {
-                    "error": "expected movie title or movie ID"
+                    "error": "expected movie title or movie ID",
+                    "explanation": "The CloudCite API did not receive a movie title or movie ID."
                 };
                 var response = {
                     "statusCode": 422,
@@ -325,7 +344,8 @@ exports.handler = function(event, context, callback) {
                 }).catch(function (err) {
                     console.log("Error in RP:" + err);
                     var body = {
-                        "error": "movie not found"
+                        "error": "movie not found",
+                        "explanation": "The CloudCite API was unable to find the movie you wanted to cite or failed to cite your movie due to issues with the TMDb API."
                     };
                     var response = {
                         "statusCode": 404,
@@ -457,7 +477,8 @@ exports.handler = function(event, context, callback) {
                 }).catch(function (err) {
                     console.log("Error in RP:" + err);
                     var body = {
-                        "error": "movie ID not found"
+                        "error": "movie ID not found",
+                        "explanation": "The CloudCite API was unable to find the movie you wanted to cite or failed to cite your movie due to issues with the TMDb API."
                     };
                     var response = {
                         "statusCode": 404,
@@ -477,7 +498,8 @@ exports.handler = function(event, context, callback) {
             var details = (request.book == null || request.book == "");
             if(search && details){
                 var body = {
-                    "error": "expected book title or book ID"
+                    "error": "expected book title or book id",
+                    "explanation": "The CloudCite API did not receive a book title or book id."
                 };
                 var response = {
                     "statusCode": 422,
@@ -512,7 +534,8 @@ exports.handler = function(event, context, callback) {
                 }
                 else{
                     var body = {
-                        "error": "expected book title, isbn, lccn, oclc, author, publisher, or id"
+                        "error": "expected book title, isbn, lccn, oclc, author, publisher, or id",
+                        "explanation": "The CloudCite API did not receive a book title, isbn, lccn, oclc, author, publisher, or id"
                     };
                     var response = {
                         "statusCode": 422,
@@ -546,7 +569,8 @@ exports.handler = function(event, context, callback) {
                 }).catch(function (err) {
                     console.log("Error in RP:" + err);
                     var body = {
-                        "error": "book not found"
+                        "error": "book not found",
+                        "explanation": "The CloudCite API was unable to find the book you wanted to cite or failed to cite your book due to issues with the Google Books API."
                     };
                     var response = {
                         "statusCode": 404,
@@ -596,6 +620,8 @@ exports.handler = function(event, context, callback) {
                         "dimensions": null,
                         "abstract": null,
                         "collection-title": null,
+                        "container-title": null,
+                        "collection-number": null,
                         "type": "book"
                     };
                     if(body != null){
@@ -696,7 +722,8 @@ exports.handler = function(event, context, callback) {
                 }).catch(function (err) {
                     console.log("Error in RP:" + err);
                     var body = {
-                        "error": "book id error"
+                        "error": "book id error",
+                        "explanation": "The CloudCite API was unable to find the book you wanted to cite or failed to cite your book due to issues with the Google Books API."
                     };
                     var response = {
                         "statusCode": 422,
@@ -831,6 +858,7 @@ exports.handler = function(event, context, callback) {
                             "language": null,
                             "title": null,
                             "title-short": null,
+                            "medium": null,
                             "publisher": null,
                             "publisher-place": null,
                             "source": null,
@@ -1038,6 +1066,7 @@ exports.handler = function(event, context, callback) {
                             "language": null,
                             "title": null,
                             "title-short": null,
+                            "medium": null,
                             "publisher": null,
                             "publisher-place": null,
                             "source": null,
@@ -1264,6 +1293,7 @@ exports.handler = function(event, context, callback) {
                             "language": null,
                             "title": null,
                             "title-short": null,
+                            "medium": null,
                             "publisher": null,
                             "publisher-place": null,
                             "source": null,
@@ -1503,6 +1533,7 @@ exports.handler = function(event, context, callback) {
                             "language": null,
                             "title": null,
                             "title-short": null,
+                            "medium": null,
                             "publisher": null,
                             "publisher-place": null,
                             "source": null,
@@ -1707,6 +1738,7 @@ exports.handler = function(event, context, callback) {
                             "language": null,
                             "title": null,
                             "title-short": null,
+                            "medium": null,
                             "publisher": null,
                             "publisher-place": null,
                             "source": null,
