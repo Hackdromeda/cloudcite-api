@@ -1,5 +1,5 @@
-const CSL = require("citeproc");
 const fs = require("fs");
+const util = require("util");
 var citeproc = require("citeproc-js-node"); //docs for citeproc https://citeproc-js.readthedocs.io/en/latest/index.html
 
 exports.handler = function(event, context, callback) {
@@ -50,9 +50,9 @@ exports.handler = function(event, context, callback) {
         return callback(null, response);
 	}
 	else {
-		localeFile = fs.readFileSync(localeLocation, 'utf8');
-	}
-	sys.addLocale(lang, localeFile);
+        localeFile = fs.readFileSync(localeLocation, 'utf8');
+    }
+    sys.addLocale(lang, localeFile);
 	var styleLocation = './styles/' + request.style + '.csl';
     var styleString = ''; 
 	if(!fs.existsSync(styleLocation)) {
@@ -110,7 +110,7 @@ exports.handler = function(event, context, callback) {
             }
         }
 	}
-	var engine = sys.newEngine(styleString, lang, null);
+	var engine = sys.newEngine(styleString, null, null);
 	var items = request.csl;
     sys.items = items;
     
@@ -129,10 +129,19 @@ exports.handler = function(event, context, callback) {
         return callback(null, response);
 	}
 	else {
-		var err = {
+        var err = {
             "error": "bibliography creation failed",
             "explanation": "There was an unknown error creating your bibliography. Let us know about the locale, language, or style selected."
 		};
-		return callback(JSON.stringify(err), null);
-	}
+        var response = {
+            "statusCode": 400,
+            "headers": {
+                "Access-Control-Allow-Origin" : "*",
+                "Access-Control-Allow-Credentials" : true
+            },
+            "body": JSON.stringify(err),
+            "isBase64Encoded": false
+        };
+		return callback(null, response);
+    }
 } // end of Lambda export
