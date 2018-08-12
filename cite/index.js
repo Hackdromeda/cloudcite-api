@@ -2,7 +2,7 @@ const fs = require("fs");
 const util = require("util");
 var citeproc = require("citeproc-js-node"); //docs for citeproc https://citeproc-js.readthedocs.io/en/latest/index.html
 
-exports.handler = function(event, context, callback) {
+exports.handler = async function(event, context, callback) {
     //var headers = event.headers;
     //headers = ConvertKeysToLowerCase(headers);
     var request = event.body.replace(/null/g, '""'); // Replace null keys with ""
@@ -50,9 +50,24 @@ exports.handler = function(event, context, callback) {
         return callback(null, response);
 	}
 	else {
-        localeFile = fs.readFileSync(localeLocation, 'utf8');
+        try {
+            localeFile = await new Promise((resolve, reject) => {
+                fs.readFile(localeLocation, 'utf8', (error, data) => {
+                    if (error) {
+                        reject(error);
+                    }
+                    else resolve(data);
+                });
+            })
+            sys.addLocale(lang, localeFile);
+         }
+         catch (error) {
+            console.log(error)
+            return callback(error, null)
+         }
+        //localeFile = fs.readFileSync(localeLocation, 'utf8');
+        //sys.addLocale(lang, localeFile);
     }
-    sys.addLocale(lang, localeFile);
 	var styleLocation = './styles/' + request.style + '.csl';
     var styleString = ''; 
 	if(!fs.existsSync(styleLocation)) {
@@ -72,7 +87,22 @@ exports.handler = function(event, context, callback) {
         return callback(null, response);
 	}
 	else {
-        styleString = fs.readFileSync(styleLocation, 'utf8');
+        try {
+            styleString = await new Promise((resolve, reject) => {
+                fs.readFile(styleLocation, 'utf8', (error, data) => {
+                    if (error) {
+                        reject(error);
+                    }
+                    else resolve(data);
+                });
+            })
+        }
+        catch (error) {
+            console.log(error)
+            callback(error, null)
+        }
+        //styleString = fs.readFileSync(styleLocation, 'utf8');
+
         var parentpath = "";
         if(request.style.includes("dependent/")){
             parentpath = styleString.match(/<link.*?href="?(https?:\/\/[\w.\-/]*)"?.*?rel="?independent-parent"?.*?\/>/gi);
@@ -106,7 +136,21 @@ exports.handler = function(event, context, callback) {
                 return callback(null, response);
             }
             else {
-                styleString = fs.readFileSync(styleLocation, 'utf8');
+                try {
+                    styleString = await new Promise((resolve, reject) => {
+                        fs.readFile(styleLocation, 'utf8', (error, data) => {
+                            if (error) {
+                                reject(error);
+                            }
+                            else resolve(data);
+                        });
+                    })
+                }
+                catch (error) {
+                    console.log(error)
+                    callback(error, null)
+                }
+                //styleString = fs.readFileSync(styleLocation, 'utf8');
             }
         }
 	}
