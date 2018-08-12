@@ -1,12 +1,8 @@
 const fs = require("fs");
-const util = require("util");
-var citeproc = require("citeproc-js-node"); //docs for citeproc https://citeproc-js.readthedocs.io/en/latest/index.html
+var citeproc = require("citeproc-js-node");
 
 exports.handler = async function(event, context, callback) {
-    //var headers = event.headers;
-    //headers = ConvertKeysToLowerCase(headers);
     var request = event.body.replace(/null/g, '""'); // Replace null keys with ""
-    request = JSON.parse(request);
     if (request == null || request == "") {
         var body = {
             "error": "empty request",
@@ -23,7 +19,26 @@ exports.handler = async function(event, context, callback) {
         };
         return callback(null, response);
     }
-    var sys = new citeproc.simpleSys();
+    try{
+        request = JSON.parse(request);
+    }
+    catch(error){
+        console.log(error);
+        var err = {
+            "error": "malformed request sent",
+            "explanation": "The CloudCite API did not receive a properly formatted JSON."
+        };
+        var response = {
+            "statusCode": 400,
+            "headers": {
+                "Access-Control-Allow-Origin" : "*",
+                "Access-Control-Allow-Credentials" : true
+            },
+            "body": JSON.stringify(err),
+            "isBase64Encoded": false
+        };
+        return callback(null, response);
+    }
     var lang = "en-US";
     if(request.lang != "" && request.lang != null){
         lang = request.lang;
@@ -59,14 +74,23 @@ exports.handler = async function(event, context, callback) {
                     else resolve(data);
                 });
             })
-            sys.addLocale(lang, localeFile);
          }
          catch (error) {
-            console.log(error)
-            return callback(error, null)
+            var err = {
+                "error": "locale file read failed",
+                "explanation": "There was an unknown error creating your bibliography. Let us know about the locale, language, or style selected."
+            };
+            var response = {
+                "statusCode": 400,
+                "headers": {
+                    "Access-Control-Allow-Origin" : "*",
+                    "Access-Control-Allow-Credentials" : true
+                },
+                "body": JSON.stringify(err),
+                "isBase64Encoded": false
+            };
+            return callback(null, response);
          }
-        //localeFile = fs.readFileSync(localeLocation, 'utf8');
-        //sys.addLocale(lang, localeFile);
     }
 	var styleLocation = './styles/' + request.style + '.csl';
     var styleString = ''; 
@@ -99,10 +123,21 @@ exports.handler = async function(event, context, callback) {
         }
         catch (error) {
             console.log(error)
-            callback(error, null)
+            var err = {
+                "error": "style read failed",
+                "explanation": "There was an unknown error creating your bibliography. Let us know about the locale, language, or style selected."
+            };
+            var response = {
+                "statusCode": 400,
+                "headers": {
+                    "Access-Control-Allow-Origin" : "*",
+                    "Access-Control-Allow-Credentials" : true
+                },
+                "body": JSON.stringify(err),
+                "isBase64Encoded": false
+            };
+            return callback(null, response);
         }
-        //styleString = fs.readFileSync(styleLocation, 'utf8');
-
         var parentpath = "";
         if(request.style.includes("dependent/")){
             parentpath = styleString.match(/<link.*?href="?(https?:\/\/[\w.\-/]*)"?.*?rel="?independent-parent"?.*?\/>/gi);
@@ -148,18 +183,54 @@ exports.handler = async function(event, context, callback) {
                 }
                 catch (error) {
                     console.log(error)
-                    callback(error, null)
+                    var err = {
+                        "error": "style read failed",
+                        "explanation": "There was an unknown error creating your bibliography. Let us know about the locale, language, or style selected."
+                    };
+                    var response = {
+                        "statusCode": 400,
+                        "headers": {
+                            "Access-Control-Allow-Origin" : "*",
+                            "Access-Control-Allow-Credentials" : true
+                        },
+                        "body": JSON.stringify(err),
+                        "isBase64Encoded": false
+                    };
+                    return callback(null, response);
                 }
-                //styleString = fs.readFileSync(styleLocation, 'utf8');
             }
         }
-	}
-	var engine = sys.newEngine(styleString, null, null);
-	var items = request.csl;
-    sys.items = items;
-    
-    engine.updateItems(Object.keys(items));
-    var bib = engine.makeBibliography();
+    }
+    var bib;
+    try{
+        var sys = new citeproc.simpleSys();
+        sys.addLocale(lang, localeFile);
+        var engine = sys.newEngine(styleString, null, null);
+        var items = request.csl;
+        sys.items = items;
+        engine.updateItems(Object.keys(items));
+        bib = engine.makeBibliography();
+    }
+    catch (error) {
+        var debug = "Locale: " + request.locale + " Style: " + request.style;
+        console.log(debug)
+        console.log("Error at Bibliography Creation: " + error)
+        var err = {
+            "error": "bibliography creation failed",
+            "explanation": "There was an unknown error creating your bibliography. Let us know about the locale, language, or style selected.",
+            "server": debug
+        };
+        var response = {
+            "statusCode": 400,
+            "headers": {
+                "Access-Control-Allow-Origin" : "*",
+                "Access-Control-Allow-Credentials" : true
+            },
+            "body": JSON.stringify(err),
+            "isBase64Encoded": false
+        };
+        return callback(null, response);
+    }
  	if (bib != null || bib != "") {
         var response = {
             "statusCode": 200,
@@ -173,8 +244,9 @@ exports.handler = async function(event, context, callback) {
         return callback(null, response);
 	}
 	else {
+        console.log("Empty Bibliography")
         var err = {
-            "error": "bibliography creation failed",
+            "error": "empty bibliography",
             "explanation": "There was an unknown error creating your bibliography. Let us know about the locale, language, or style selected."
 		};
         var response = {
@@ -188,4 +260,4 @@ exports.handler = async function(event, context, callback) {
         };
 		return callback(null, response);
     }
-} // end of Lambda export
+}
