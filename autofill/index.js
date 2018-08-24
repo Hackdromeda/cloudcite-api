@@ -10,21 +10,6 @@ exports.handler = function(event, context, callback) {
     var headers = event.headers;
     headers = ConvertKeysToLowerCase(headers);
     var request = ConvertKeysToLowerCase(JSON.parse(event.body));
-/*     if(headers["content-type"] != null && headers["content-type"].toLowerCase() != "application/json"){
-        var body = {
-            "error": "the server can only accept data in the application/json format"
-        };
-        var response = {
-            "statusCode": 406,
-            "headers": {
-                "Access-Control-Allow-Origin" : "*",
-                "Access-Control-Allow-Credentials" : true
-            },
-            "body": JSON.stringify(body),
-            "isBase64Encoded": false
-        };
-        return callback(null, response);
-    } */
     if(request == null || request == ""){
         var body = {
             "error": "empty request",
@@ -84,11 +69,8 @@ exports.handler = function(event, context, callback) {
                         "id": id,
                         "author": [],
                         "title": null,
-                        "publisher": null,
                         "note": null,
                         "container-title": null,
-                        "container-title": null,
-                        "source": null,
                         "genre": null,
                         "language": null,
                         "URL": request.url,
@@ -134,17 +116,17 @@ exports.handler = function(event, context, callback) {
                     if (citation.title == null || citation.title == "") {
                         citation.title = $('title').text();
                     }
-                    citation.source = $('meta[property="og:site_name"]').attr('content');
-                    if(citation.source == null || citation.source == ""){
-                        citation.source = $('meta[name="og:site_name"]').attr('content');
+                    citation["container-title"] = $('meta[property="og:site_name"]').attr('content');
+                    if(citation["container-title"] == null || citation["container-title"] == ""){
+                        citation["container-title"] = $('meta[name="og:site_name"]').attr('content');
                     }
-                    if(citation.source == null || citation.source == ""){
+                    if(citation["container-title"] == null || citation["container-title"] == ""){
                         for(var i = 0; i < items.length; i++){
                             if(items[i].type[0] == "http://schema.org/Organization"){
                                 for(var j = 0; j < items[i].properties.name.length; j++){
                                     var org = items[i].properties.name[j];
                                     if(org != null && org != ""){
-                                        citation.source = org;
+                                        citation["container-title"] = org;
                                     }
                                 }
                             }
@@ -208,7 +190,7 @@ exports.handler = function(event, context, callback) {
                             citation.author.push({given: videoOwner});
                         }
                     }
-                    if(rootDomain == "twitter.com" || (citation.source != null && citation.source.toLowerCase() == "twitter")){
+                    if(rootDomain == "twitter.com" || (citation["container-title"] != null && citation["container-title"].toLowerCase() == "twitter")){
                         for(var i = 0; i < citation.author.length; i++){
                             var fn = citation.author[i].given;
                             if(fn != null && fn != ""){
@@ -216,20 +198,8 @@ exports.handler = function(event, context, callback) {
                             }
                         }
                     }
-                    if((publishers[0] == null || publishers[0] == "") && (citation.source != null && citation.source != "")){
-                        citation.publisher = citation.source;
-                    }
-                    else{
-                        citation.publisher = publishers[0]; 
-                    }
-                    if((citation.publisher != null && citation.publisher != "") && (citation.source == null || citation.source == "")){
-                        citation.source = citation.publisher;
-                    }
-                    if(citation.publisher != null && citation.publisher != ""){
-                        citation["container-title"] = citation.publisher;
-                    }
-                    else if(citation.source != null && citation.source != ""){
-                        citation["container-title"] = citation.source;
+                    if((publishers[0] == null || publishers[0] == "") && (citation["container-title"] == null || citation["container-title"] == "")){
+                        citation["container-title"] = publishers[0]; 
                     }
                     var date;
                     date = $('meta[property="og:published_time"]').attr('content');
