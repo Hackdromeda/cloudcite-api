@@ -13,6 +13,10 @@ const metascraper = require('metascraper')([
 ]);
 const got = require('got');
 const version = "1.6";
+var credentials = false;
+if(process.env.ALLOW_CREDENTIALS.toLowerCase() == "true"){
+    credentials = true;
+}
 
 exports.handler = function (event, context, callback) {
     var headers = event.headers;
@@ -26,8 +30,8 @@ exports.handler = function (event, context, callback) {
         var response = {
             "statusCode": 400,
             "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Credentials": true,
+                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                "Access-Control-Allow-Credentials": credentials,
                 "API-Version": version
             },
             "body": JSON.stringify(body),
@@ -45,8 +49,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -94,6 +98,7 @@ exports.handler = function (event, context, callback) {
                         "title": null,
                         "note": null,
                         "container-title": null,
+                        "publisher": null,
                         "genre": null,
                         "language": null,
                         "URL": request.url,
@@ -124,6 +129,18 @@ exports.handler = function (event, context, callback) {
                         }
                     }
                     var publishers = []
+                    for (var i in jsonldItems) {
+                        if (jsonldItems[i] != null && jsonldItems[i].publisher != null) {
+                            for (j in jsonldItems[i].publisher) {
+                                if (jsonldItems[i].publisher[j] != null && jsonldItems[i].publisher[j].name != null) {
+                                    publishers.push(jsonldItems[i].publisher[j].name);
+                                }
+                            }
+                        }
+                    }
+                    if (meta != null && meta.publisher != null && meta.publisher != "") {
+                        publishers.push(meta.publisher);
+                    }
                     $('div').each(function (i, elem) {
                         var text = $(this).text().replaceAll('\xa0', ' ').replace(/[0-9]/g, '').trim();
                         var lower = text.toLowerCase();
@@ -143,20 +160,8 @@ exports.handler = function (event, context, callback) {
                             }
                         }
                     });
-                    for (var i in jsonldItems) {
-                        if (jsonldItems[i] != null && jsonldItems[i].publisher != null) {
-                            for (j in jsonldItems[i].publisher) {
-                                if (jsonldItems[i].publisher[j] != null && jsonldItems[i].publisher[j].name != null) {
-                                    publishers.push(jsonldItems[i].publisher[j].name);
-                                }
-                            }
-                        }
-                    }
-                    if (meta != null && meta.publisher != null && meta.publisher != "") {
-                        publishers.push(meta.publisher);
-                    }
                     if (meta != null && meta.description != null && meta.description != "") {
-                        citation.abstract = meta.description;
+                        citation.abstract = meta.description.trim();
                     }
                     citation.title = $('meta[property="og:title"]').attr('content');
                     if (citation.title == null || citation.title == "") {
@@ -164,6 +169,9 @@ exports.handler = function (event, context, callback) {
                     }
                     if (citation.title == null || citation.title == "") {
                         citation.title = $('title').text();
+                    }
+                    if (citation.title != null || citation.title != "") {
+                        citation.title = citation.title.trim();
                     }
                     citation["container-title"] = $('meta[property="og:site_name"]').attr('content');
                     if (citation["container-title"] == null || citation["container-title"] == "") {
@@ -187,6 +195,7 @@ exports.handler = function (event, context, callback) {
                     var temp = [];
                     authors.push($('meta[property="author"]').attr('content'));
                     authors.push($('meta[name="author"]').attr('content'));
+                    authors.push($('meta[property="article:author"]').attr('content'));
                     var by1 = $('meta[name="byl"]').attr('content');
                     if(by1 != null){
                         by1 = by1.replace(/by/gi, "").trim();
@@ -226,11 +235,19 @@ exports.handler = function (event, context, callback) {
                         }
                     }
                     for(var i in temp){
-                        temp[i] = temp[i].trim();
+                        var str = sanitize(temp[i].trim());
+                        temp[i] = str;
+                    }
+                    for(var i = temp.length - 1; i >= 0; i--){
+                        for(j in publishers){
+                            if(temp[i].indexOf(publishers[j].toLowerCase()) > 0){
+                                temp[i] = "" // Remove author if publisher is contained within
+                            }
+                        }
                     }
                     authors = temp;
                     authors = _.uniq(authors);
-                    authors = _.compact(authors)
+                    authors = _.compact(authors);
                     for (var i = 0; i < authors.length; i++) {
                         if (authors[i] != null) {
                             var fullName = authors[i].split(' ');
@@ -253,8 +270,8 @@ exports.handler = function (event, context, callback) {
                                 firstName = firstName + " " + middleName;
                             }
                             citation.author.push({
-                                given: firstName,
-                                family: lastName
+                                given: removeSymbols(firstName),
+                                family: removeSymbols(lastName)
                             });
                         }
                     }
@@ -262,9 +279,18 @@ exports.handler = function (event, context, callback) {
                         var videoOwner = $('.yt-user-info > a').text();
                         if (videoOwner != null && videoOwner != "") {
                             citation.author.push({
-                                given: videoOwner
+                                family: videoOwner
                             });
                         }
+                    }
+                    if (rootDomain == "history.com") {
+                        citation.author.push({
+                            family: "History.com Staff"
+                        });
+                        if(citation.title != null && citation.title != ""){
+                            citation.title = citation.title.split("|")[0].trim();
+                        }
+                        citation.publisher = "A&E Television Networks";
                     }
                     if (rootDomain == "twitter.com" || (citation["container-title"] != null && citation["container-title"].toLowerCase() == "twitter")) {
                         for (var i = 0; i < citation.author.length; i++) {
@@ -277,21 +303,41 @@ exports.handler = function (event, context, callback) {
                     if ((publishers[0] == null || publishers[0] == "") && (citation["container-title"] == null || citation["container-title"] == "")) {
                         citation["container-title"] = publishers[0];
                     }
-                    var date;
-                    date = $('meta[property="og:published_time"]').attr('content');
+                    var dates = [];
+                    var checkedDates = [];
+                    dates.push($('meta[property="og:published_time"]').attr('content'));
+                    dates.push($('meta[property="og:modified_time"]').attr('content'));
+                    dates.push($('meta[property="article:modified_time"]').attr('content'));
+                    dates.push($('meta[property="article:published_time"]').attr('content'));
+                    dates.push($('meta[property="article:published"]').attr('content'));
+                    dates.push($('meta[property="article:modified"]').attr('content'));
                     if (date == null || date == "") {
-                        date = $('meta[property="article:published_time"]').attr('content');
-                    }
-                    if (date == null || date == "") {
-                        date = $('meta[property="article:published"]').attr('content');
-                    }
-                    if (date == null || date == "") {
-                        if (meta != null && meta.date != null && meta.date != "") {
-                            date = meta.date;
+                        for (var i in jsonldItems) {
+                            if (jsonldItems[i] != null && jsonldItems[i].datePublished != null && !isNaN(Date.parse(jsonldItems[i].datePublished))) {
+                                dates.push(jsonldItems[i].datePublished);
+                            }
+                            if (jsonldItems[i] != null && jsonldItems[i].dateCreated != null && !isNaN(Date.parse(jsonldItems[i].dateCreated))) {
+                                dates.push(jsonldItems[i].dateCreated);
+                            }
+                            if (jsonldItems[i] != null && jsonldItems[i].dateModified != null && !isNaN(Date.parse(jsonldItems[i].dateModified))) {
+                                dates.push(jsonldItems[i].dateModified);
+                            }
                         }
                     }
-                    if (date != null) {
-                        date = new Date(date)
+                    if (meta != null && meta.date != null && meta.date != "") {
+                        dates.push(meta.date);
+                    }
+                    dates = _.uniq(dates);
+                    dates = _.compact(dates);
+                    for(var i in dates){
+                        if(!isNaN(Date.parse(dates[i]))){
+                            checkedDates.push(dates[i]);
+                        }
+                    }
+                    dates = checkedDates;
+                    dates.sort(sortDatesByDesc);
+                    if (dates != null && dates[0] != null) {
+                        var date = new Date(dates[0])
                         citation.issued.month = (date.getMonth() + 1).toString();
                         citation.issued.day = date.getDate().toString();
                         citation.issued.year = date.getFullYear().toString();
@@ -304,8 +350,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 200,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": citation,
@@ -321,8 +367,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -339,8 +385,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -358,8 +404,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -384,8 +430,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 200,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": body,
@@ -401,8 +447,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 404,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -521,8 +567,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": body,
@@ -538,8 +584,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 404,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -560,8 +606,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -591,8 +637,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -611,8 +657,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 200,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": body,
@@ -628,8 +674,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 404,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -768,8 +814,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 200,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": citation,
@@ -785,8 +831,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -804,8 +850,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -823,8 +869,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -843,8 +889,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -863,8 +909,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": body,
@@ -879,8 +925,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 404,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -937,8 +983,8 @@ exports.handler = function (event, context, callback) {
                                     var response = {
                                         "statusCode": 404,
                                         "headers": {
-                                            "Access-Control-Allow-Origin": "*",
-                                            "Access-Control-Allow-Credentials": true,
+                                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                            "Access-Control-Allow-Credentials": credentials,
                                             "API-Version": version
                                         },
                                         "body": JSON.stringify(body),
@@ -1001,8 +1047,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": citation,
@@ -1017,8 +1063,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1037,8 +1083,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -1057,8 +1103,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1077,8 +1123,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": body,
@@ -1093,8 +1139,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 404,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1151,8 +1197,8 @@ exports.handler = function (event, context, callback) {
                                     var response = {
                                         "statusCode": 404,
                                         "headers": {
-                                            "Access-Control-Allow-Origin": "*",
-                                            "Access-Control-Allow-Credentials": true,
+                                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                            "Access-Control-Allow-Credentials": credentials,
                                             "API-Version": version
                                         },
                                         "body": JSON.stringify(body),
@@ -1215,8 +1261,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": citation,
@@ -1231,8 +1277,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1251,8 +1297,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -1273,8 +1319,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1293,8 +1339,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": body,
@@ -1309,8 +1355,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 404,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1332,8 +1378,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1383,8 +1429,8 @@ exports.handler = function (event, context, callback) {
                                     var response = {
                                         "statusCode": 404,
                                         "headers": {
-                                            "Access-Control-Allow-Origin": "*",
-                                            "Access-Control-Allow-Credentials": true,
+                                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                            "Access-Control-Allow-Credentials": credentials,
                                             "API-Version": version
                                         },
                                         "body": JSON.stringify(body),
@@ -1450,8 +1496,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": citation,
@@ -1466,8 +1512,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1483,8 +1529,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -1501,8 +1547,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -1520,8 +1566,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -1540,8 +1586,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1560,8 +1606,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": body,
@@ -1576,8 +1622,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 404,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1632,8 +1678,8 @@ exports.handler = function (event, context, callback) {
                                     var response = {
                                         "statusCode": 404,
                                         "headers": {
-                                            "Access-Control-Allow-Origin": "*",
-                                            "Access-Control-Allow-Credentials": true,
+                                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                            "Access-Control-Allow-Credentials": credentials,
                                             "API-Version": version
                                         },
                                         "body": JSON.stringify(body),
@@ -1696,8 +1742,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": citation,
@@ -1712,8 +1758,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1732,8 +1778,8 @@ exports.handler = function (event, context, callback) {
                     var response = {
                         "statusCode": 422,
                         "headers": {
-                            "Access-Control-Allow-Origin": "*",
-                            "Access-Control-Allow-Credentials": true,
+                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                            "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
                         "body": JSON.stringify(body),
@@ -1752,8 +1798,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1772,8 +1818,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": body,
@@ -1788,8 +1834,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 404,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1844,8 +1890,8 @@ exports.handler = function (event, context, callback) {
                                     var response = {
                                         "statusCode": 404,
                                         "headers": {
-                                            "Access-Control-Allow-Origin": "*",
-                                            "Access-Control-Allow-Credentials": true,
+                                            "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                            "Access-Control-Allow-Credentials": credentials,
                                             "API-Version": version
                                         },
                                         "body": JSON.stringify(body),
@@ -1886,8 +1932,8 @@ exports.handler = function (event, context, callback) {
                                         var response = {
                                             "statusCode": 422,
                                             "headers": {
-                                                "Access-Control-Allow-Origin": "*",
-                                                "Access-Control-Allow-Credentials": true,
+                                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                                "Access-Control-Allow-Credentials": credentials,
                                                 "API-Version": version
                                             },
                                             "body": JSON.stringify(body),
@@ -1937,8 +1983,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 200,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": citation,
@@ -1953,8 +1999,8 @@ exports.handler = function (event, context, callback) {
                         var response = {
                             "statusCode": 422,
                             "headers": {
-                                "Access-Control-Allow-Origin": "*",
-                                "Access-Control-Allow-Credentials": true,
+                                "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                                "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
                             "body": JSON.stringify(body),
@@ -1970,8 +2016,8 @@ exports.handler = function (event, context, callback) {
                 var response = {
                     "statusCode": 422,
                     "headers": {
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Credentials": true,
+                        "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                        "Access-Control-Allow-Credentials": credentials,
                         "API-Version": version
                     },
                     "body": JSON.stringify(body),
@@ -1995,8 +2041,8 @@ exports.handler = function (event, context, callback) {
             var response = {
                 "statusCode": 400,
                 "headers": {
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Credentials": true,
+                    "Access-Control-Allow-Origin": process.env.ALLOW_ORIGIN,
+                    "Access-Control-Allow-Credentials": credentials,
                     "API-Version": version
                 },
                 "body": JSON.stringify(body),
@@ -2007,33 +2053,33 @@ exports.handler = function (event, context, callback) {
 }
 
 function sanitizeInput(s) {
-    s = s.replace('©', '');
-    s = s.replace('℗', '');
-    s = s.replace('Copyright', '');
-    s = s.replace('copyright', '');
-    s = s.replace('-', '');
-    s = s.replaceAll('&nbsp;', ' ');
-    s = s.replaceAll('\xa0', ' ');
-    s = s.replaceAll('All Rights Reserved', '');
-    s = s.replace(' or its affiliated companies', '');
-    s = s.replace('&lt;', '');
-    s = s.replace('&gt;', '');
-    s = s.replace('&#60;', '');
-    s = s.replace('&#62;', '');
-    s = s.replace('&#34;', '');
-    s = s.replace('&quot;', '');
-    s = s.replace('&quot', '');
-    s = s.replace('&apos;', '');
-    s = s.replace('&apos', '');
-    s = s.replace('&#39;', '');
-    s = s.replace('&#162;', '');
-    s = s.replace('&#169;', '');
-    s = s.replace('&copy;', '');
-    s = s.replace('&reg;', '');
-    s = s.replace('&#174;', '');
-    s = s.replace(/-+/g, '-'); //Removes consecutive dashes
-    s = s.replace(/ +(?= )/g, ''); //Removes double spacing
-
+    if(s != null){
+        s = s.replace('©', '');
+        s = s.replace('℗', '');
+        s = s.replace(/copyright/gi, '');
+        s = s.replace('-', '');
+        s = s.replaceAll('&nbsp;', ' ');
+        s = s.replaceAll('\xa0', ' ');
+        s = s.replaceAll(/all rights reserved/gi, '');
+        s = s.replace(' or its affiliated companies', '');
+        s = s.replace('&lt;', '');
+        s = s.replace('&gt;', '');
+        s = s.replace('&#60;', '');
+        s = s.replace('&#62;', '');
+        s = s.replace('&#34;', '');
+        s = s.replace('&quot;', '');
+        s = s.replace('&quot', '');
+        s = s.replace('&apos;', '');
+        s = s.replace('&apos', '');
+        s = s.replace('&#39;', '');
+        s = s.replace('&#162;', '');
+        s = s.replace('&#169;', '');
+        s = s.replace('&copy;', '');
+        s = s.replace('&reg;', '');
+        s = s.replace('&#174;', '');
+        s = s.replace(/-+/g, '-'); //Removes consecutive dashes
+        s = s.replace(/ +(?= )/g, ''); //Removes double spacing
+    }
     return s;
 }
 
@@ -2042,14 +2088,22 @@ String.prototype.replaceAll = function (search, replacement) {
     return target.replace(new RegExp(search, 'g'), replacement);
 };
 
-function splitMulti(str, tokens) {
-    var tempChar = tokens[0]; // We can use the first token as a temporary join character
-    for (var i = 1; i < tokens.length; i++) {
-        str = str.split(tokens[i]).join(tempChar);
+function splitMulti(string, tokens) {
+    if(string != null && (typeof string === 'string' || string instanceof String)){
+        var tempChar = tokens[0]; // We can use the first token as a temporary join character
+        for (var i = 1; i < tokens.length; i++) {
+            string = string.split(tokens[i]).join(tempChar);
+        }
+        string = string.split(tempChar);
     }
-    str = str.split(tempChar);
-    return str;
+    return string;
 }
+
+sortDatesByDesc = function (date1, date2) {
+    if (date1 > date2) return -1;
+    if (date1 < date2) return 1;
+    return 0;
+};
 
 function ConvertKeysToLowerCase(obj) {
     var output = {};
@@ -2098,6 +2152,23 @@ function youtubeID(url) {
     var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
     var match = url.match(regExp);
     return (match && match[7].length == 11) ? match[7] : false;
+}
+
+function sanitize(str) {
+    if(str != null){
+        str = str.replace(/(https|http|ftp)?:\/\/(\w|\.|\/|\?|\=|\&|\%)*\b/gi, "")
+        str = str.replace(/\bby\b/gi, "")
+        str = str.replace(/view author archive/gi, "")
+        str = str.trim();
+    }
+    return str;
+}
+
+function removeSymbols(str) {
+    if(str != null){
+        str = str.replace(/([^a-zA-Z])+([^a-zA-Z])+/gi, "");
+    }
+    return str;
 }
 
 function convertLang(lang) {
