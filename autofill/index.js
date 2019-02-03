@@ -12,6 +12,7 @@ const metascraper = require('metascraper')([
     require('metascraper-url')()
 ]);
 const got = require('got');
+const typeMap = require('./typeMap.json');
 const version = "1.6";
 var credentials = false;
 if(process.env.ALLOW_CREDENTIALS.toLowerCase() == "true"){
@@ -39,7 +40,7 @@ exports.handler = function (event, context, callback) {
         };
         return callback(null, response);
     }
-    switch (request.format) {
+    switch (request.type) {
         case 'website':
             if (request.url == null || request.url == "") {
                 var body = {
@@ -354,7 +355,7 @@ exports.handler = function (event, context, callback) {
                             "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
-                        "body": citation,
+                        "body": {"citation": citation, "typeMap": typeMap[request.type]},
                         "isBase64Encoded": false
                     };
                     callback(null, response);
@@ -818,7 +819,7 @@ exports.handler = function (event, context, callback) {
                             "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
-                        "body": citation,
+                        "body": {"citation": citation, "typeMap": typeMap[request.type]},
                         "isBase64Encoded": false
                     };
                     callback(null, response);
@@ -1051,7 +1052,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": citation,
+                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -1265,7 +1266,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": citation,
+                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -1500,7 +1501,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": citation,
+                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -1746,7 +1747,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": citation,
+                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -1987,7 +1988,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": citation,
+                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -2033,7 +2034,7 @@ exports.handler = function (event, context, callback) {
         case 'image':
             break;
         default:
-            //console.log('Format is invalid');
+            //console.log('type is invalid');
             //console.log("request: " + JSON.stringify(event));
             var body = {
                 "error": "bad request"
