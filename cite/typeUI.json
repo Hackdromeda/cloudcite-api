@@ -1,0 +1,142 @@
+[
+    {
+        "csl": "graphic",
+        "UI": "Artwork"
+    },
+    {
+        "csl": "song",
+        "UI": "Audio Recording"
+    },
+    {
+        "csl": "bill",
+        "UI": "Bill"
+    },
+    {
+        "csl": "post-weblog",
+        "UI": "Blog Post"
+    },
+    {
+        "csl": "book",
+        "UI": "Book"
+    },
+    {
+        "csl": "chapter",
+        "UI": "Book Chapter"
+    },
+    {
+        "csl": "legal_case",
+        "UI": "Case"
+    },
+    {
+        "csl": "computerProgram",
+        "UI": "Computer Program"
+    },
+    {
+        "csl": "paper-conference",
+        "UI": "Conference Paper"
+    },
+    {
+        "csl": "entry-dictionary",
+        "UI": "Dictionary Entry"
+    },
+    {
+        "csl": "article",
+        "UI": "Document"
+    },
+    {
+        "csl": "personal_communication",
+        "UI": "E-mail"
+    },
+    {
+        "csl": "entry-encyclopedia",
+        "UI": "Encyclopedia Article"
+    },
+    {
+        "csl": "motion_picture",
+        "UI": "Film"
+    },
+    {
+        "csl": "post",
+        "UI": "Forum Post"
+    },
+    {
+        "csl": "hearing(bill)",
+        "UI": "Hearing"
+    },
+    {
+        "csl": "instantMessage(personal_communication)",
+        "UI": "Instant Message"
+    },
+    {
+        "csl": "interview",
+        "UI": "Interview"
+    },
+    {
+        "csl": "article-journal",
+        "UI": "Journal Article"
+    },
+    {
+        "csl": "letter(personal_communication)",
+        "UI": "Letter"
+    },
+    {
+        "csl": "article-magazine",
+        "UI": "Magazine Article"
+    },
+    {
+        "csl": "manuscript",
+        "UI": "Manuscript"
+    },
+    {
+        "csl": "map",
+        "UI": "Map"
+    },
+    {
+        "csl": "newspaper-article",
+        "UI": "Newspaper Article"
+    },
+    {
+        "csl": "article",
+        "UI": "Note"
+    },
+    {
+        "csl": "patent",
+        "UI": "Patent"
+    },
+    {
+        "csl": "song(podcast)",
+        "UI": "Podcast"
+    },
+    {
+        "csl": "speech",
+        "UI": "Presentation"
+    },
+    {
+        "csl": "broadcast",
+        "UI": "Radio Broadcast"
+    },
+    {
+        "csl": "report",
+        "UI": "Report"
+    },
+    {
+        "csl": "legislation",
+        "UI": "Statute"
+    },
+    {
+        "csl": "broadcast",
+        "UI": "TV Broadcast"
+    },
+    {
+        "csl": "thesis",
+        "UI": "Thesis"
+    },
+    {
+        "csl": "video(motion_picture)",
+        "UI": "Video Recording"
+    },
+    {
+        "csl": "webpage",
+        "UI": "Website"
+    }
+]
