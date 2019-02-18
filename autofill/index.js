@@ -397,7 +397,7 @@ exports.handler = function (event, context, callback) {
                             "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
-                        "body": {"citation": citation, "typeMap": typeMap[request.type]},
+                        "body": citation,
                         "isBase64Encoded": false
                     };
                     callback(null, response);
@@ -861,7 +861,7 @@ exports.handler = function (event, context, callback) {
                             "Access-Control-Allow-Credentials": credentials,
                             "API-Version": version
                         },
-                        "body": {"citation": citation, "typeMap": typeMap[request.type]},
+                        "body": citation,
                         "isBase64Encoded": false
                     };
                     callback(null, response);
@@ -1094,7 +1094,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
+                            "body": citation,
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -1308,7 +1308,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
+                            "body": citation,
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -1543,7 +1543,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
+                            "body": citation,
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -1789,7 +1789,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
+                            "body": citation,
                             "isBase64Encoded": false
                         };
                         callback(null, response);
@@ -2030,7 +2030,7 @@ exports.handler = function (event, context, callback) {
                                 "Access-Control-Allow-Credentials": credentials,
                                 "API-Version": version
                             },
-                            "body": {"citation": citation, "typeMap": typeMap[request.type]},
+                            "body": citation,
                             "isBase64Encoded": false
                         };
                         callback(null, response);
