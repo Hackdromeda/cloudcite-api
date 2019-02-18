@@ -92,6 +92,7 @@ exports.handler = function (event, context, callback) {
                     }
                 }).then(($) => {
                     var id = request.id == null ? "SET" : request.id;
+                    var citationURL = request.url.replace(/(^\w+:|^)\/\//, '').split('?')[0];
                     var citation = {
                         "issued": {
                             "month": null,
@@ -100,13 +101,14 @@ exports.handler = function (event, context, callback) {
                         },
                         "id": id,
                         "author": [],
+                        "contributors": [],
                         "title": null,
                         "note": null,
                         "container-title": null,
                         "publisher": null,
                         "genre": null,
                         "language": null,
-                        "URL": request.url,
+                        "URL": citationURL,
                         "abstract": null,
                         "type": "webpage"
                     };
@@ -273,7 +275,7 @@ exports.handler = function (event, context, callback) {
                                     }
                                     middleName = fullName[fullName.length - 2];
                                 }
-                                citation.author.push({
+                                citation.contributors.push({
                                     given: removeSymbols(firstName),
                                     middle: removeSymbols(middleName),
                                     family: removeSymbols(lastName),
@@ -284,6 +286,7 @@ exports.handler = function (event, context, callback) {
                         }
                     }
                     else{
+                        delete citation.contributors;
                         for (var i = 0; i < authors.length; i++) {
                             if (authors[i] != null) {
                                 var fullName = authors[i].split(' ');
