@@ -12,8 +12,8 @@ const metascraper = require('metascraper')([
     require('metascraper-url')()
 ]);
 const got = require('got');
-const typeMap = require('./typeMap.json');
-const version = "1.6";
+const crypto = require('crypto');
+const version = "1.6.1";
 var credentials = false;
 if(process.env.ALLOW_CREDENTIALS.toLowerCase() == "true"){
     credentials = true;
@@ -40,7 +40,11 @@ exports.handler = function (event, context, callback) {
         };
         return callback(null, response);
     }
-    switch (request.type) {
+    var transform = false;
+    if (request.transform != null && request.transform.toString().toLowerCase() == "true"){
+        transform = true;
+    }
+    switch (request.format) {
         case 'website':
             if (request.url == null || request.url == "") {
                 var body = {
@@ -196,7 +200,6 @@ exports.handler = function (event, context, callback) {
                     var temp = [];
                     authors.push($('meta[property="author"]').attr('content'));
                     authors.push($('meta[name="author"]').attr('content'));
-                    authors.push($('meta[property="article:author"]').attr('content'));
                     var by1 = $('meta[name="byl"]').attr('content');
                     if(by1 != null){
                         by1 = by1.replace(/by/gi, "").trim();
@@ -241,39 +244,72 @@ exports.handler = function (event, context, callback) {
                     }
                     for(var i = temp.length - 1; i >= 0; i--){
                         for(j in publishers){
-                            if(temp[i].indexOf(publishers[j].toLowerCase()) > 0){
-                                temp[i] = "" // Remove author if publisher is contained within
+                            if(temp[i] != null){
+                                if(temp[i].toLowerCase().indexOf(publishers[j].toLowerCase()) >= 0){
+                                    temp[i] = "" // Remove author if publisher is contained within
+                                }
                             }
                         }
                     }
                     authors = temp;
                     authors = _.uniq(authors);
                     authors = _.compact(authors);
-                    for (var i = 0; i < authors.length; i++) {
-                        if (authors[i] != null) {
-                            var fullName = authors[i].split(' ');
-                            var firstName = fullName[0];
-                            var middleName;
-                            var lastName;
-                            if (fullName.length >= 2) {
-                                lastName = fullName[fullName.length - 1];
-                            }
-                            if (fullName.length == 3) {
-                                middleName = fullName[fullName.length - 2];
-                            }
-                            if (fullName.length > 3) {
-                                for (var j = 1; j > fullName.length - 2; j++) {
-                                    firstName = firstName + " " + fullName[j];
+                    if(transform){
+                        for (var i = 0; i < authors.length; i++) {
+                            if (authors[i] != null) {
+                                var fullName = authors[i].split(' ');
+                                var firstName = fullName[0];
+                                var middleName;
+                                var lastName;
+                                if (fullName.length >= 2) {
+                                    lastName = fullName[fullName.length - 1];
                                 }
-                                middleName = fullName[fullName.length - 2];
+                                if (fullName.length == 3) {
+                                    middleName = fullName[fullName.length - 2];
+                                }
+                                if (fullName.length > 3) {
+                                    for (var j = 1; j > fullName.length - 2; j++) {
+                                        firstName = firstName + " " + fullName[j];
+                                    }
+                                    middleName = fullName[fullName.length - 2];
+                                }
+                                citation.author.push({
+                                    given: removeSymbols(firstName),
+                                    middle: removeSymbols(middleName),
+                                    family: removeSymbols(lastName),
+                                    key: crypto.randomBytes(20).toString('hex'),
+                                    type: "author"
+                                });
                             }
-                            if (middleName != null) {
-                                firstName = firstName + " " + middleName;
+                        }
+                    }
+                    else{
+                        for (var i = 0; i < authors.length; i++) {
+                            if (authors[i] != null) {
+                                var fullName = authors[i].split(' ');
+                                var firstName = fullName[0];
+                                var middleName;
+                                var lastName;
+                                if (fullName.length >= 2) {
+                                    lastName = fullName[fullName.length - 1];
+                                }
+                                if (fullName.length == 3) {
+                                    middleName = fullName[fullName.length - 2];
+                                }
+                                if (fullName.length > 3) {
+                                    for (var j = 1; j > fullName.length - 2; j++) {
+                                        firstName = firstName + " " + fullName[j];
+                                    }
+                                    middleName = fullName[fullName.length - 2];
+                                }
+                                if (middleName != null) {
+                                    firstName = firstName + " " + middleName;
+                                }
+                                citation.author.push({
+                                    given: removeSymbols(firstName),
+                                    family: removeSymbols(lastName)
+                                });
                             }
-                            citation.author.push({
-                                given: removeSymbols(firstName),
-                                family: removeSymbols(lastName)
-                            });
                         }
                     }
                     if (rootDomain == "youtu.be" || rootDomain == "youtube.com") {
@@ -347,6 +383,9 @@ exports.handler = function (event, context, callback) {
                         citation.language = convertLang(meta.lang); //ISO 639-1
                     }
                     citation = JSON.stringify(citation)
+                    if(transform){
+                        citation = citation.replace(/null/g, '""');
+                    }
                     //console.log('Citation: ' + citation)
                     var response = {
                         "statusCode": 200,
