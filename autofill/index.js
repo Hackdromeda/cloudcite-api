@@ -257,6 +257,7 @@ exports.handler = function (event, context, callback) {
                     authors = _.uniq(authors);
                     authors = _.compact(authors);
                     if(transform){
+                        delete citation.author;
                         for (var i = 0; i < authors.length; i++) {
                             if (authors[i] != null) {
                                 var fullName = authors[i].split(' ');
@@ -554,7 +555,7 @@ exports.handler = function (event, context, callback) {
                             }
                         }
                         if (details != null && details.overview != null) {
-                            citation.abstract = details.overview;
+                            citation.abstract = details.overview.replace(/<(?:.|\n)*?>/gm, '').replace(/ +(?= )/g, '');
                         }
                         if (details != null && details.title != null) {
                             citation.title = details.title;
